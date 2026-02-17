@@ -73,5 +73,3 @@ use_try_shorthand = true
 style_edition = "2021"
 where_single_line = false
 wrap_comments = true
-
-
