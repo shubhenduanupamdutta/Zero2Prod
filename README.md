@@ -51,3 +51,24 @@ cargo audit
 This will scan your `Cargo.toml` and `Cargo.lock` files for dependencies and report any known vulnerabilities, along with their severity and any available fixes.
 
 ---
+
+## Project Scope
+
+---
+
+We will fulfill two user stories in this project:
+
+- As a blog visitor,
+  I want to subscribe to the newsletter,
+  So that I can receive email updates when new content is published on the blog.
+
+- As the blog author,
+  I want to send an email to all my subscribers,
+  So that I can notify them when new content is published on the blog.
+
+We will not add features to
+
+- unsubscribe from the newsletter;
+- manage multiple newsletters;
+- segment subscribers in multiple audiences;
+- track opening and click rates of the emails;
