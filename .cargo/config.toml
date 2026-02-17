@@ -1,0 +1,5 @@
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "linker=clang", "-C", "link-args=-fuse-ld=lld"]
+
+[build]
+jobs = 12

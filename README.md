@@ -1,0 +1,53 @@
+# Important Notes from Zero 2 Prod Book
+
+---
+
+## Inner Development Loop
+
+---
+
+- `cargo watch -x run` : This command will watch for changes in the code and automatically re-run the application whenever a change is detected. This allows for a faster development cycle, as you don't have to manually stop and start the application every time you make a change.
+- **Command Chaining**: You can chain multiple commands together like
+
+```sh
+cargo watch -x check -x test -x run
+```
+
+This will run `cargo check`, `cargo test`, and `cargo run` in sequence whenever a change is detected. This is useful for ensuring that your code compiles and passes tests before running the application. Our inner development loop right here.
+
+---
+
+## Code Coverage with `cargo-llvm-cov`
+
+---
+
+`cargo-llvm-cov` is a tool that provides code coverage information for Rust projects. It uses LLVM's coverage instrumentation to generate reports on which lines of code were executed during tests.
+To use `cargo-llvm-cov`, you can install it using Cargo:
+
+```sh
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov
+```
+
+---
+
+## Security Vulnerabilities check with `cargo-audit`
+
+---
+
+`cargo-audit` is a tool that checks for security vulnerabilities in Rust dependencies. It uses the RustSec Advisory Database to identify known vulnerabilities in the crates you are using.
+To use `cargo-audit`, you can install it using Cargo:
+
+```sh
+cargo install cargo-audit
+```
+
+Once installed, you can run it in your project directory to check for vulnerabilities:
+
+```sh
+cargo audit
+```
+
+This will scan your `Cargo.toml` and `Cargo.lock` files for dependencies and report any known vulnerabilities, along with their severity and any available fixes.
+
+---
