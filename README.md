@@ -138,3 +138,5 @@ sqlx migrate run
 ```
 
 This will execute the SQL commands in the migration files and create the necessary tables in your database.
+
+---
