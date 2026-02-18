@@ -18,6 +18,7 @@ env:
   APP_USER: ${{ secrets.APP_USER }}
   APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
   APP_DB_NAME: newsletter
+  DATABASE_URL: postgres://${{ secrets.APP_USER }}:${{ secrets.APP_PASSWORD }}@localhost:5432/newsletter
 
 jobs:
   test:
@@ -132,7 +133,7 @@ jobs:
           sudo apt-get install postgresql-client
 
           # Create the application user
-          CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PWD}';"
+          CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_PASSWORD}';"
           PGPASSWORD=${{ secrets.PG_PASSWORD }} psql -U ${{ secrets.PG_USER }} -h "localhost" -c "${CREATE_QUERY}"
 
           # Grant create db privileges to the app user
