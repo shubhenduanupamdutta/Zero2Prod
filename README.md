@@ -91,3 +91,50 @@ You can then run it in your project directory to see the expanded code for a spe
 ```sh
 cargo expand --lib
 ```
+
+---
+
+## Using SQLx with `sqlx-cli`
+
+---
+
+### Installing `sqlx-cli`
+
+`sqlx-cli` is a command-line tool for working with SQLx, a Rust library for interacting with databases. It provides features like database migrations and query validation.
+To install `sqlx-cli` for postgres, you can use Cargo:
+
+```sh
+cargo install --version='~0.8' sqlx-cli --no-default-features --features rustls,postgres
+```
+
+### Setting up the database
+
+First set the environment variable `DATABASE_URL` to point to your Postgres database. For example:
+
+```sh
+export DATABASE_URL=postgres://username:password@localhost/database_name
+```
+
+Then you can create the database using the following command:
+
+```sh
+sqlx database create
+```
+
+### Running Migrations
+
+To create a new migration, you can use the following command:
+
+```sh
+sqlx migrate add create_subscriptions_table
+```
+
+This will create a new migration file in the `migrations` directory. You can then edit this file to define the SQL commands needed to create the `subscriptions` table.
+
+Then you can run the migrations to apply them to the database:
+
+```sh
+sqlx migrate run
+```
+
+This will execute the SQL commands in the migration files and create the necessary tables in your database.
