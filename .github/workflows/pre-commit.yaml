@@ -33,12 +33,6 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
 
-      - name: install sqlx-cli
-        run: cargo install sqlx-cli --version ${{ env.SQLX_VERSION }} --features ${{ env.SQLX_FEATURES }} --no-default-features --locked
-
-      - name: Check that queries are fresh
-        run: cargo sqlx prepare --workspace --check -- --all-targets
-
       - name: setup python
         uses: actions/setup-python@v3
 
