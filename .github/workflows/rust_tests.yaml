@@ -7,10 +7,14 @@ on:
     branches: [main, dev]
   workflow_dispatch:
 
+concurrency:
+  group: "rust-tests-and-coverage"
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
-  sqlx_version: 0.8.0
-  sqlx_features: "rustls,postgres"
+  SQLX_VERSION: 0.8.0
+  SQLX_FEATURES: "rustls,postgres"
   APP_USER: ${{ secrets.APP_USER }}
   APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
   APP_DB_NAME: newsletter
@@ -37,7 +41,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: install sqlx-cli
-        run: cargo install sqlx-cli --version ${{ env.sqlx_version }} --features ${{ env.sqlx_features }} --no-default-features --locked
+        run: cargo install sqlx-cli --version ${{ env.SQLX_VERSION }} --features ${{ env.SQLX_FEATURES }} --no-default-features --locked
 
       - name: Create app user in database
         run: |
