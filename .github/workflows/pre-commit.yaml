@@ -11,7 +11,7 @@ env:
 
 jobs:
   pre-commit:
-    name: Test Suite
+    name: pre-commit checks
     runs-on: ubuntu-latest
 
     steps:
