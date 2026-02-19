@@ -23,6 +23,7 @@ chrono = { version = "0.4.43", default-features = false, features = [
     "clock",
 ] }
 config = "0.15.19"
+env_logger = "0.11.9"
 serde = { version = "1.0.228", features = ["derive"] }
 sqlx = { version = "0.8.6", features = [
     "runtime-tokio-rustls",
