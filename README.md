@@ -264,3 +264,9 @@ doctl apps update <your-app-id> --spec=app_spec.yaml
 ```
 
 `<your-app-id>` can be obtained from the output of `doctl apps list` command.
+
+### Deleting your app
+
+```sh
+doctl apps delete <your-app-id>
+```
