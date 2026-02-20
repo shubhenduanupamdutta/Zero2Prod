@@ -2,7 +2,7 @@ use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use serde::Deserialize;
 use sqlx::PgPool;
-use tracing::{Instrument, error, info, info_span};
+use tracing::{error, info, info_span, Instrument};
 use uuid::Uuid;
 
 #[allow(dead_code)]
