@@ -140,3 +140,27 @@ sqlx migrate run
 This will execute the SQL commands in the migration files and create the necessary tables in your database.
 
 ---
+
+## Bunyan
+
+---
+
+You can use 'bunyan' CLI to prettify the outputted logs. Original requires NPM but you can install a rust-port with
+
+```sh
+cargo install bunyan
+```
+
+Then you can use it like this:
+
+```sh
+cargo run | bunyan
+```
+
+or
+
+```sh
+TEST_LOG=true cargo test health_check_works | bunyan
+```
+
+---
