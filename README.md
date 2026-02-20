@@ -164,3 +164,35 @@ TEST_LOG=true cargo test health_check_works | bunyan
 ```
 
 ---
+
+## Docker
+
+---
+
+### Building docker image from Dockerfile
+
+```sh
+docker build -t zero2prod .
+```
+
+This command builds a Docker image from the Dockerfile in the current directory and tags it as `zero2prod`.
+
+### Need to cache sql query for sqlx compilation to happen before the code is compiled. This is done by running the following command
+
+```sh
+cargo sqlx prepare --workspace --check -- --all-targets
+```
+
+This command prepares the SQL queries for SQLx by checking them against the database schema. It ensures that all queries are valid and can be executed successfully. This step is necessary before compiling the code, as it allows SQLx to generate the necessary code for interacting with the database.
+
+- `--workspace` : This flag tells Cargo to prepare SQL queries for all packages in the workspace.
+- `--check` : This flag tells Cargo to check the SQL queries against the database schema without actually executing them. This is useful for catching any errors in the queries before running the application.
+- `-- --all-targets` : This part tells Cargo to prepare SQL queries for all targets (e.g., library, binary, tests) in the workspace. The `--` is used to separate Cargo's own flags from the flags that are passed to the underlying command.
+
+### Running our docker container
+
+#### With port 8000 exposed
+
+```sh
+docker run -p 8000:8000 zero2prod
+```
