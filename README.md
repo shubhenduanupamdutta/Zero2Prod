@@ -196,3 +196,71 @@ This command prepares the SQL queries for SQLx by checking them against the data
 ```sh
 docker run -p 8000:8000 zero2prod
 ```
+
+---
+
+## Digital Ocean
+
+---
+
+Digital Ocean is a cloud infrastructure provider that offers various services, including virtual machines (droplets), managed databases, and Kubernetes clusters. It provides an easy-to-use interface for deploying and managing applications in the cloud.
+
+### Installing `doctl` CLI
+
+```sh
+sudo snap install doctl
+```
+
+### Authenticating `doctl`
+
+```sh
+doctl auth init --context <name>
+```
+
+This command initializes the authentication process for `doctl` and creates a new context with the specified name. You will be prompted to enter your Digital Ocean API token, which can be obtained from the Digital Ocean control panel.
+
+- `--context <name>` : This flag specifies the name of the context to create. A context is a named set of credentials and configuration that allows you to manage multiple Digital Ocean accounts or projects from a single `doctl` installation.
+
+You can switch between contexts using the following command:
+
+```sh
+doctl auth switch --context <name>
+```
+
+You can see all available contexts with:
+
+```sh
+doctl auth list
+```
+
+### Creating an app using CLI
+
+You can create a new app on Digital Ocean using the following command:
+
+```sh
+doctl apps create --spec app_spec.yaml
+```
+
+### Checking your app status
+
+```sh
+doctl apps list
+```
+
+Or on dashboard.
+
+### Viewing URI after deployment is confirmed
+
+```sh
+doctl apps list
+```
+
+### Adding database to your app
+
+After updating your `spec.yaml` file to include a database, you can create the app with the following command:
+
+```sh
+doctl apps update <your-app-id> --spec=app_spec.yaml
+```
+
+`<your-app-id>` can be obtained from the output of `doctl apps list` command.
