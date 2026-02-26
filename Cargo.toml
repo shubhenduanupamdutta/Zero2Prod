@@ -44,4 +44,5 @@ unicode-segmentation = "1.12.0"
 uuid = { version = "1.21.0", features = ["v4"] }
 
 [dev-dependencies]
+claims = "0.8.0"
 reqwest = "0.13.2"
