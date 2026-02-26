@@ -3,7 +3,6 @@ use chrono::Utc;
 use serde::Deserialize;
 use sqlx::PgPool;
 use tracing::error;
-use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 use crate::domain::{NewSubscriber, SubscriberName};
@@ -45,7 +44,7 @@ async fn insert_subscriber(pool: &PgPool, new_subscriber: &NewSubscriber) -> Res
         "#,
         Uuid::new_v4(),
         new_subscriber.email,
-        new_subscriber.name.inner_ref(),
+        new_subscriber.name.as_ref(),
         Utc::now()
     )
     .execute(pool)

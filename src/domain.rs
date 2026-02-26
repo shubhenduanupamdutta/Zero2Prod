@@ -28,17 +28,10 @@ impl SubscriberName {
             Self(name)
         }
     }
+}
 
-    pub fn inner(self) -> String {
-        // The caller gets the inner string
-        // but they don't have a SubscriberName anymore!
-        self.0
-    }
-
-    pub fn inner_ref(&self) -> &str {
-        // The caller gets a shared reference to the inner string
-        // This gives the caller **read-only** access to the inner string,
-        // They have no way to compromise the invariants of the SubscriberName struct.
+impl AsRef<str> for SubscriberName {
+    fn as_ref(&self) -> &str {
         &self.0
     }
 }
