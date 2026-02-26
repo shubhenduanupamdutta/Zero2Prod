@@ -162,7 +162,6 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
     }
 }
 
-
 #[tokio::test]
 async fn subscribe_returns_a_200_when_fields_are_present_but_empty() {
     // Arrange
