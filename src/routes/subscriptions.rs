@@ -6,6 +6,8 @@ use tracing::error;
 use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
+use crate::domain::{NewSubscriber, SubscriberName};
+
 #[derive(Deserialize)]
 pub struct FormData {
     name: String,
@@ -18,46 +20,32 @@ pub struct FormData {
     subscriber_name=%form.name
 ))]
 pub async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> HttpResponse {
-    if !is_valid_name(&form.name) {
-        return HttpResponse::BadRequest().body("Name cannot be empty");
+    // `web::Form` is a wrapper around the `FormData`
+    // `form.0` gives us access to the inner `FormData` instance
+    let new_subscriber = NewSubscriber {
+        email: form.0.email,
+        name: SubscriberName::parse(form.0.name),
     };
 
-    match insert_subscriber(&pool, &form).await {
+    match insert_subscriber(&pool, &new_subscriber).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
 
-/// Returns `true` if the input satisfies all our validation constraints
-/// on subscriber names, `false` otherwise.
-fn is_valid_name(name: &str) -> bool {
-    let is_empty_or_whitespace = name.trim().is_empty();
-
-    // A grapheme is defined by the Unicode Standard as a user-perceived character.
-    // For example, the name "Beyoncé" consists of 7 graphemes, even though it has 8 Unicode code points (the "é" is represented as "e" followed by a combining acute accent).
-    let is_too_long = name.graphemes(true).count() > 256;
-
-    // Checking for any of the forbidden characters: '/', '(', ')', '"', '<', '>', '\\', '{', '}'
-    let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
-    let contains_forbidden_characters = name.chars().any(|c| forbidden_characters.contains(&c));
-
-    // Return false if any of the validation checks fail
-    !(is_empty_or_whitespace || is_too_long || contains_forbidden_characters)
-}
-
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(form, pool)
+    skip(new_subscriber, pool)
 )]
-async fn insert_subscriber(pool: &PgPool, form: &FormData) -> Result<(), sqlx::Error> {
+async fn insert_subscriber(pool: &PgPool, new_subscriber: &NewSubscriber) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
         VALUES ($1, $2, $3, $4)
         "#,
         Uuid::new_v4(),
-        form.email,
-        form.name,
+        new_subscriber.email,
+        new_subscriber.name.inner_ref(),
         Utc::now()
     )
     .execute(pool)
