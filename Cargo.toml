@@ -23,6 +23,7 @@ chrono = { version = "0.4.43", default-features = false, features = [
     "clock",
 ] }
 config = "0.15.19"
+reqwest = { version = "0.13.2", features = ["json", "rustls"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde-aux = "4.7.0"
@@ -53,4 +54,3 @@ fake = "4.4.0"
 quickcheck = "1.1.0"
 quickcheck_macros = "1.2.0"
 rand = "^0.9.0"
-reqwest = "0.13.2"
