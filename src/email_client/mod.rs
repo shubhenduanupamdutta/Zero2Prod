@@ -21,8 +21,13 @@ impl EmailClient {
         authorization_token: SecretString,
     ) -> Self {
         let base_url = Url::parse(&base_url).expect("Invalid base URL");
+        let http_client = Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap();
+
         Self {
-            http_client: Client::new(),
+            http_client,
             base_url,
             sender_email,
             sender_name,
@@ -51,7 +56,8 @@ impl EmailClient {
             .header("Authorization", self.authorization_token.expose_secret())
             .json(&request_body)
             .send()
-            .await.map_err(|e| e.to_string())?
+            .await
+            .map_err(|e| e.to_string())?
             .error_for_status()
             .map_err(|e| e.to_string())?;
         Ok(())
@@ -61,13 +67,13 @@ impl EmailClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use claims::assert_err;
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use fake::faker::name::en::Name;
     use fake::{Fake, Faker};
     use wiremock::matchers::{any, header, header_exists, method, path};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
-    use claims::assert_err;
 
     struct SendEmailBodyMatcher;
 
@@ -182,6 +188,43 @@ mod tests {
         // add bare minimum needed to trigger the path we want
         Mock::given(any())
             .respond_with(ResponseTemplate::new(500))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Act
+        let outcome = email_client
+            .send_email(subscriber_email, subscriber_name, &subject, &content)
+            .await;
+
+        // Assert
+        assert_err!(outcome);
+    }
+
+    #[tokio::test]
+    async fn send_email_times_out_if_the_server_takes_too_long() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+        let sender_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let sender_name = SubscriberName::parse(Name().fake()).unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender_email,
+            sender_name,
+            Faker.fake::<String>().into(),
+        );
+
+        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let subscriber_name = SubscriberName::parse(Name().fake()).unwrap();
+        let subject: String = Sentence(1..2).fake();
+        let content: String = Paragraph(1..10).fake();
+
+        // Purpose of this test is not to assert on the request we send out so we
+        // add bare minimum needed to trigger the path we want
+        let response = ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(180));
+
+        Mock::given(any())
+            .respond_with(response)
             .expect(1)
             .mount(&mock_server)
             .await;
