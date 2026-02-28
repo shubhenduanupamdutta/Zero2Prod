@@ -56,6 +56,7 @@ async fn spawn_app() -> TestApp {
         configuration.email_client.base_url,
         sender_email,
         sender_name,
+        configuration.email_client.authorization_token,
     );
 
     let server = startup::run(listener, connection_pool.clone(), email_client)
