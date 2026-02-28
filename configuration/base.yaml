@@ -8,4 +8,5 @@ database:
   database_name: newsletter
 email_client:
   base_url: "localhost"
-  sender: "test@gmail.com"
+  sender_email: "test@gmail.com"
+  sender_name: "Test Sender"

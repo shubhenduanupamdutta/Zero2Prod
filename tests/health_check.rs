@@ -46,9 +46,18 @@ async fn spawn_app() -> TestApp {
 
     let sender_email = configuration
         .email_client
-        .sender()
+        .sender_email()
         .expect("Invalid sender email address.");
-    let email_client = EmailClient::new(configuration.email_client.base_url, sender_email);
+    let sender_name = configuration
+        .email_client
+        .sender_name()
+        .expect("Invalid sender name.");
+    let email_client = EmailClient::new(
+        configuration.email_client.base_url,
+        sender_email,
+        sender_name,
+    );
+
     let server = startup::run(listener, connection_pool.clone(), email_client)
         .expect("Failed to bind address");
     let _server_handle = tokio::spawn(server);
