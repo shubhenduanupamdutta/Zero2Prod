@@ -51,7 +51,8 @@ impl EmailClient {
             .header("Authorization", self.authorization_token.expose_secret())
             .json(&request_body)
             .send()
-            .await
+            .await.map_err(|e| e.to_string())?
+            .error_for_status()
             .map_err(|e| e.to_string())?;
         Ok(())
     }
