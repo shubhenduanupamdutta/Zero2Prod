@@ -64,11 +64,30 @@ mod tests {
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use fake::faker::name::en::Name;
     use fake::{Fake, Faker};
-    use wiremock::matchers::any;
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::matchers::{header, header_exists, method, path};
+    use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+
+    struct SendEmailBodyMatcher;
+
+    impl wiremock::Match for SendEmailBodyMatcher {
+        fn matches(&self, request: &Request) -> bool {
+            // Try to parse the body as json value
+            let result: Result<serde_json::Value, _> = serde_json::from_slice(&request.body);
+            if let Ok(body) = result {
+                dbg!(&body);
+                // Check that all mandatory fields are present
+                body.get("from").is_some()
+                    && body.get("to").is_some()
+                    && body.get("subject").is_some()
+                    && body.get("html_body").is_some()
+            } else {
+                false
+            }
+        }
+    }
 
     #[tokio::test]
-    async fn send_email_fires_a_request_to_base_url() {
+    async fn send_email_sends_the_expected_request() {
         // Arrange
         let mock_server = MockServer::start().await;
         let sender_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
@@ -80,7 +99,11 @@ mod tests {
             Faker.fake::<String>().into(),
         );
 
-        Mock::given(any())
+        Mock::given(header_exists("Authorization"))
+            .and(header("Content-Type", "application/json"))
+            .and(method("POST"))
+            .and(path("/email"))
+            .and(SendEmailBodyMatcher)
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
             .mount(&mock_server)
@@ -97,5 +120,6 @@ mod tests {
             .await;
 
         // Assert
+        // Mock expectations are asserted on drop
     }
 }
