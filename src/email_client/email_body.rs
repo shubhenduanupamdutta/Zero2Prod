@@ -6,41 +6,41 @@ pub type ParsedEmail = SubscriberEmail;
 pub type ParsedName = SubscriberName;
 
 #[derive(Serialize, Deserialize)]
-pub struct NameAndEmail {
-    address: String,
-    name: String,
+pub struct NameAndEmail<'a> {
+    address: &'a str,
+    name: &'a str,
 }
 
-impl NameAndEmail {
-    pub(crate) fn new(email: &str, name: &str) -> Result<Self, String> {
+impl<'a> NameAndEmail<'a> {
+    pub(crate) fn new(email: &'a str, name: &'a str) -> Result<Self, String> {
         Ok(Self {
-            address: email.to_string(),
-            name: name.to_string(),
+            address: email,
+            name,
         })
     }
 }
 
 #[derive(Serialize)]
-pub struct EmailAddress {
-    email_address: NameAndEmail,
+pub struct EmailAddress<'a> {
+    email_address: NameAndEmail<'a>,
 }
 
 #[derive(Serialize)]
-pub struct EmailBody {
-    from: NameAndEmail,
-    to: Vec<EmailAddress>,
-    cc: Option<Vec<EmailAddress>>,
-    reply_to: Option<NameAndEmail>,
-    subject: String,
-    html_body: String,
+pub struct EmailBody<'a> {
+    from: NameAndEmail<'a>,
+    to: Vec<EmailAddress<'a>>,
+    cc: Option<Vec<EmailAddress<'a>>>,
+    reply_to: Option<NameAndEmail<'a>>,
+    subject: &'a str,
+    html_body: &'a str,
 }
 
-impl EmailBody {
+impl<'a> EmailBody<'a> {
     pub(crate) fn new(
-        from: NameAndEmail,
-        to: NameAndEmail,
-        subject: String,
-        html_body: String,
+        from: NameAndEmail<'a>,
+        to: NameAndEmail<'a>,
+        subject: &'a str,
+        html_body: &'a str,
     ) -> Self {
         Self {
             from,

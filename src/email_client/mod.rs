@@ -44,7 +44,7 @@ impl EmailClient {
 
         let from = NameAndEmail::new(self.sender_email.as_ref(), self.sender_name.as_ref())?;
         let to = NameAndEmail::new(recipient_email.as_ref(), recipient_name.as_ref())?;
-        let request_body = EmailBody::new(from, to, subject.to_string(), html_content.to_string());
+        let request_body = EmailBody::new(from, to, subject, html_content);
 
         self.http_client
             .post(url)
