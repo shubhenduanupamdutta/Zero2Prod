@@ -94,18 +94,36 @@ mod tests {
         }
     }
 
+    /// Generate a random email subject
+    fn subject() -> String {
+        Sentence(1..2).fake()
+    }
+
+    /// Generate random email content
+    fn content() -> String {
+        Paragraph(1..10).fake()
+    }
+
+    /// Generate a random subscriber email
+    fn email() -> SubscriberEmail {
+        SubscriberEmail::parse(SafeEmail().fake()).unwrap()
+    }
+
+    /// Generate a random subscriber name
+    fn name() -> SubscriberName {
+        SubscriberName::parse(Name().fake()).unwrap()
+    }
+
+    /// Get a test instance of EmailClient
+    fn email_client(base_url: String) -> EmailClient {
+        EmailClient::new(base_url, email(), name(), Faker.fake::<String>().into())
+    }
+
     #[tokio::test]
     async fn send_email_sends_the_expected_request() {
         // Arrange
         let mock_server = MockServer::start().await;
-        let sender_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let sender_name = SubscriberName::parse(Name().fake()).unwrap();
-        let email_client = EmailClient::new(
-            mock_server.uri(),
-            sender_email,
-            sender_name,
-            Faker.fake::<String>().into(),
-        );
+        let email_client = email_client(mock_server.uri());
 
         Mock::given(header_exists("Authorization"))
             .and(header("Content-Type", "application/json"))
@@ -117,14 +135,9 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let subscriber_name = SubscriberName::parse(Name().fake()).unwrap();
-        let subject: String = Sentence(1..2).fake();
-        let content: String = Paragraph(1..10).fake();
-
         // Act
         let _ = email_client
-            .send_email(subscriber_email, subscriber_name, &subject, &content)
+            .send_email(email(), name(), &subject(), &content())
             .await;
 
         // Assert
@@ -135,19 +148,7 @@ mod tests {
     async fn send_email_succeeds_if_the_server_returns_200() {
         // Arrange
         let mock_server = MockServer::start().await;
-        let sender_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let sender_name = SubscriberName::parse(Name().fake()).unwrap();
-        let email_client = EmailClient::new(
-            mock_server.uri(),
-            sender_email,
-            sender_name,
-            Faker.fake::<String>().into(),
-        );
-
-        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let subscriber_name = SubscriberName::parse(Name().fake()).unwrap();
-        let subject: String = Sentence(1..2).fake();
-        let content: String = Paragraph(1..10).fake();
+        let email_client = email_client(mock_server.uri());
 
         // Purpose of this test is not to assert on the request we send out so we
         // add bare minimum needed to trigger the path we want
@@ -159,7 +160,7 @@ mod tests {
 
         // Act
         let outcome = email_client
-            .send_email(subscriber_email, subscriber_name, &subject, &content)
+            .send_email(email(), name(), &subject(), &content())
             .await;
 
         // Assert
@@ -170,19 +171,7 @@ mod tests {
     async fn send_email_fails_if_the_server_returns_500() {
         // Arrange
         let mock_server = MockServer::start().await;
-        let sender_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let sender_name = SubscriberName::parse(Name().fake()).unwrap();
-        let email_client = EmailClient::new(
-            mock_server.uri(),
-            sender_email,
-            sender_name,
-            Faker.fake::<String>().into(),
-        );
-
-        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let subscriber_name = SubscriberName::parse(Name().fake()).unwrap();
-        let subject: String = Sentence(1..2).fake();
-        let content: String = Paragraph(1..10).fake();
+        let email_client = email_client(mock_server.uri());
 
         // Purpose of this test is not to assert on the request we send out so we
         // add bare minimum needed to trigger the path we want
@@ -194,7 +183,7 @@ mod tests {
 
         // Act
         let outcome = email_client
-            .send_email(subscriber_email, subscriber_name, &subject, &content)
+            .send_email(email(), name(), &subject(), &content())
             .await;
 
         // Assert
@@ -205,19 +194,7 @@ mod tests {
     async fn send_email_times_out_if_the_server_takes_too_long() {
         // Arrange
         let mock_server = MockServer::start().await;
-        let sender_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let sender_name = SubscriberName::parse(Name().fake()).unwrap();
-        let email_client = EmailClient::new(
-            mock_server.uri(),
-            sender_email,
-            sender_name,
-            Faker.fake::<String>().into(),
-        );
-
-        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let subscriber_name = SubscriberName::parse(Name().fake()).unwrap();
-        let subject: String = Sentence(1..2).fake();
-        let content: String = Paragraph(1..10).fake();
+        let email_client = email_client(mock_server.uri());
 
         // Purpose of this test is not to assert on the request we send out so we
         // add bare minimum needed to trigger the path we want
@@ -231,7 +208,7 @@ mod tests {
 
         // Act
         let outcome = email_client
-            .send_email(subscriber_email, subscriber_name, &subject, &content)
+            .send_email(email(), name(), &subject(), &content())
             .await;
 
         // Assert
