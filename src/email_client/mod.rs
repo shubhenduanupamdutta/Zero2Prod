@@ -19,12 +19,10 @@ impl EmailClient {
         sender_email: ParsedEmail,
         sender_name: ParsedName,
         authorization_token: SecretString,
+        timeout: std::time::Duration,
     ) -> Self {
         let base_url = Url::parse(&base_url).expect("Invalid base URL");
-        let http_client = Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .unwrap();
+        let http_client = Client::builder().timeout(timeout).build().unwrap();
 
         Self {
             http_client,
@@ -116,7 +114,13 @@ mod tests {
 
     /// Get a test instance of EmailClient
     fn email_client(base_url: String) -> EmailClient {
-        EmailClient::new(base_url, email(), name(), Faker.fake::<String>().into())
+        EmailClient::new(
+            base_url,
+            email(),
+            name(),
+            Faker.fake::<String>().into(),
+            std::time::Duration::from_millis(200),
+        )
     }
 
     #[tokio::test]

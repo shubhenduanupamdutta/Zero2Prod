@@ -11,3 +11,4 @@ email_client:
   sender_email: "test@gmail.com"
   sender_name: "Test Sender"
   authorization_token: "my-secret-token"
+  timeout_milliseconds: 10000
