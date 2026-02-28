@@ -48,10 +48,7 @@ impl EmailClient {
 
         self.http_client
             .post(url)
-            .header(
-                "Authorization",
-                format!("{}", self.authorization_token.expose_secret()),
-            )
+            .header("Authorization", self.authorization_token.expose_secret())
             .json(&request_body)
             .send()
             .await
