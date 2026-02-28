@@ -64,8 +64,9 @@ mod tests {
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use fake::faker::name::en::Name;
     use fake::{Fake, Faker};
-    use wiremock::matchers::{header, header_exists, method, path};
+    use wiremock::matchers::{any, header, header_exists, method, path};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+    use claims::assert_err;
 
     struct SendEmailBodyMatcher;
 
@@ -121,5 +122,75 @@ mod tests {
 
         // Assert
         // Mock expectations are asserted on drop
+    }
+
+    #[tokio::test]
+    async fn send_email_succeeds_if_the_server_returns_200() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+        let sender_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let sender_name = SubscriberName::parse(Name().fake()).unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender_email,
+            sender_name,
+            Faker.fake::<String>().into(),
+        );
+
+        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let subscriber_name = SubscriberName::parse(Name().fake()).unwrap();
+        let subject: String = Sentence(1..2).fake();
+        let content: String = Paragraph(1..10).fake();
+
+        // Purpose of this test is not to assert on the request we send out so we
+        // add bare minimum needed to trigger the path we want
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Act
+        let outcome = email_client
+            .send_email(subscriber_email, subscriber_name, &subject, &content)
+            .await;
+
+        // Assert
+        assert!(outcome.is_ok());
+    }
+
+    #[tokio::test]
+    async fn send_email_fails_if_the_server_returns_500() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+        let sender_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let sender_name = SubscriberName::parse(Name().fake()).unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender_email,
+            sender_name,
+            Faker.fake::<String>().into(),
+        );
+
+        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let subscriber_name = SubscriberName::parse(Name().fake()).unwrap();
+        let subject: String = Sentence(1..2).fake();
+        let content: String = Paragraph(1..10).fake();
+
+        // Purpose of this test is not to assert on the request we send out so we
+        // add bare minimum needed to trigger the path we want
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(500))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Act
+        let outcome = email_client
+            .send_email(subscriber_email, subscriber_name, &subject, &content)
+            .await;
+
+        // Assert
+        assert_err!(outcome);
     }
 }
