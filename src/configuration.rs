@@ -6,14 +6,14 @@ use sqlx::postgres::{PgConnectOptions, PgSslMode};
 
 use crate::domain::{SubscriberEmail, SubscriberName};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
@@ -34,6 +34,11 @@ impl EmailClientSettings {
     pub fn timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.timeout_milliseconds)
     }
+
+    /// Returns the sender name and email as a tuple if both are valid, otherwise returns an error.
+    pub fn sender_name_end_email(&self) -> Result<(SubscriberName, SubscriberEmail), String> {
+        Ok((self.sender_name()?, self.sender_email()?))
+    }
 }
 
 #[derive(Deserialize, Clone)]
@@ -47,13 +52,14 @@ pub struct DatabaseSettings {
     pub require_ssl: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
 }
 
+#[derive(Deserialize, Clone)]
 pub enum Environment {
     Local,
     Production,
