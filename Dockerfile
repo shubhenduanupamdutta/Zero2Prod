@@ -1,6 +1,6 @@
 # Builder stage
 
-FROM lukemathwalker/cargo-chef:latest-rust-1.93.1@sha256:e69ab50e4065ec115ac625309045fa93ff3ea7037cf40e960d1ee78e6582ba71 AS chef
+FROM lukemathwalker/cargo-chef@sha256:cbf05770c13859408bfcc9d5b6cd1d4e5c1c74d22de85b35de1f07b1f8ef9628 AS chef
 WORKDIR /app
 RUN apt update && apt install lld clang -y
 
