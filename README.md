@@ -270,3 +270,29 @@ doctl apps update <your-app-id> --spec=app_spec.yaml
 ```sh
 doctl apps delete <your-app-id>
 ```
+
+### Manually migrating the database on Digital Ocean
+
+```sh
+DATABASE_URL=<DIGITAL_OCEAN_DATABASE_CONNECTION_STRING> sqlx migrate run
+```
+
+_You may need to disable Trusted Source check on your database to allow connections from your local machine. This can be done in the Digital Ocean control panel under the database settings._
+
+---
+
+## Zero-Downtime Deployments
+
+---
+
+Zero-downtime deployments refer to the practice of deploying new versions of an application without causing any downtime or disruption to users. This is typically achieved through techniques such as blue-green deployments, canary releases, or rolling updates.
+
+### A New Mandatory Column in the Database
+
+When you need to add a new mandatory column to a database table, you can follow these steps to ensure zero-downtime:
+
+#### 1. Add as optional
+
+#### 2. Start Using the New Column
+
+#### 3. Backfill and Mark as Not Null and Mandatory
