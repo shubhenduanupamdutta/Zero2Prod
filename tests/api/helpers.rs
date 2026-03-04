@@ -70,7 +70,7 @@ impl TestApp {
             confirmation_link.set_port(Some(self.port)).unwrap();
             confirmation_link
         };
-        let link = get_link(&body["html_body"].as_str().unwrap());
+        let link = get_link(&body["htmlbody"].as_str().unwrap());
         ConfirmationLinks {
             link,
         }

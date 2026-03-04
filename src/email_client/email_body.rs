@@ -32,6 +32,7 @@ pub struct EmailBody<'a> {
     cc: Option<Vec<EmailAddress<'a>>>,
     reply_to: Option<NameAndEmail<'a>>,
     subject: &'a str,
+    #[serde(rename = "htmlbody")]
     html_body: &'a str,
 }
 
