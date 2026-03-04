@@ -3,6 +3,6 @@ application:
 database:
   require_ssl: true
 email_client:
-  base_url: "https://api.zeptomail.in/v1.1"
+  base_url: "https://api.zeptomail.in/v1.1/"
   sender_email: "test@gmail.com"
   sender_name: "Test Sender"
