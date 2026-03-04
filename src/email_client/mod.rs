@@ -49,13 +49,15 @@ impl EmailClient {
         let to = NameAndEmail::new(recipient_email.as_ref(), recipient_name.as_ref());
         let request_body = EmailBody::new(from, to, subject, html_content);
 
-        let response = self.http_client
+        let response = self
+            .http_client
             .post(url)
             .header("Authorization", self.authorization_token.expose_secret())
             .json(&request_body)
             .send()
             .await?
-            .error_for_status().map_err(|e| {
+            .error_for_status()
+            .map_err(|e| {
                 tracing::error!("Failed to send email: {:?}", e);
                 e
             })?;
