@@ -47,7 +47,6 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called() {
     assert_eq!(200, response.status().as_u16());
 }
 
-
 #[tokio::test]
 async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
     // Arrange
