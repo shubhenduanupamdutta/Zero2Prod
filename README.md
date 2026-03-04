@@ -255,6 +255,12 @@ Or on dashboard.
 doctl apps list
 ```
 
+### Getting your app id
+
+```sh
+doctl apps list --format ID
+```
+
 ### Adding database to your app
 
 After updating your `spec.yaml` file to include a database, you can create the app with the following command:
