@@ -45,13 +45,30 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     };
 
+    if send_confirmation_email(&email_client, new_subscriber)
+        .await
+        .is_err()
+    {
+        return HttpResponse::InternalServerError().finish();
+    }
+    HttpResponse::Ok().finish()
+}
+
+#[tracing::instrument(
+    name = "Send a confirmation email to a new subscriber",
+    skip(email_client, new_subscriber)
+)]
+pub async fn send_confirmation_email(
+    email_client: &EmailClient,
+    new_subscriber: NewSubscriber,
+) -> Result<(), String> {
     let confirmation_link = "https://there-is-no-such-domain.com/subscriptions/confirm";
     let html_body = format!(
         "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
         confirmation_link
     );
 
-    if email_client
+    email_client
         .send_email(
             new_subscriber.email,
             new_subscriber.name,
@@ -59,11 +76,6 @@ pub async fn subscribe(
             &html_body,
         )
         .await
-        .is_err()
-    {
-        return HttpResponse::InternalServerError().finish();
-    }
-    HttpResponse::Ok().finish()
 }
 
 #[tracing::instrument(
