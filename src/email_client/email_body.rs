@@ -12,11 +12,11 @@ pub struct NameAndEmail<'a> {
 }
 
 impl<'a> NameAndEmail<'a> {
-    pub(crate) fn new(email: &'a str, name: &'a str) -> Result<Self, String> {
-        Ok(Self {
+    pub(crate) fn new(email: &'a str, name: &'a str) -> Self {
+        Self {
             address: email,
             name,
-        })
+        }
     }
 }
 

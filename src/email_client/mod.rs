@@ -39,14 +39,14 @@ impl EmailClient {
         recipient_name: SubscriberName,
         subject: &str,
         html_content: &str,
-    ) -> Result<(), String> {
+    ) -> Result<(), reqwest::Error> {
         let url = self
             .base_url
             .join("/email")
             .expect("Failed to construct URL");
 
-        let from = NameAndEmail::new(self.sender_email.as_ref(), self.sender_name.as_ref())?;
-        let to = NameAndEmail::new(recipient_email.as_ref(), recipient_name.as_ref())?;
+        let from = NameAndEmail::new(self.sender_email.as_ref(), self.sender_name.as_ref());
+        let to = NameAndEmail::new(recipient_email.as_ref(), recipient_name.as_ref());
         let request_body = EmailBody::new(from, to, subject, html_content);
 
         self.http_client
@@ -54,10 +54,9 @@ impl EmailClient {
             .header("Authorization", self.authorization_token.expose_secret())
             .json(&request_body)
             .send()
-            .await
-            .map_err(|e| e.to_string())?
-            .error_for_status()
-            .map_err(|e| e.to_string())?;
+            .await?
+            .error_for_status()?;
+
         Ok(())
     }
 }
