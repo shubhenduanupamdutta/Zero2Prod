@@ -389,12 +389,19 @@ async fn subscribe_with_different_name_same_email_pending() {
 async fn subscribe_with_different_name_confirmed() {
     let app = spawn_app().await;
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     // Insert a subscriber and a token in the database
     let id = Uuid::new_v4();
     sqlx::query!(
         r#"
-        INSERT INTO subscriptions (id, email, name, status)
-        VALUES ($1, $2, $3, 'confirmed')
+        INSERT INTO subscriptions (id, email, name, subscribed_at, status)
+        VALUES ($1, $2, $3, now(), 'confirmed')
         "#,
         id,
         "ursula_le_guin@gmail.com",
