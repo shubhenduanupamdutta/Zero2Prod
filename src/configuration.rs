@@ -11,6 +11,13 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
+    pub subscription: SubscriptionSettings,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct SubscriptionSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub token_expiration_seconds: u32,
 }
 
 #[derive(Deserialize, Clone)]

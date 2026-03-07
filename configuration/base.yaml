@@ -12,3 +12,5 @@ email_client:
   sender_name: "Test Sender"
   authorization_token: "my-secret-token"
   timeout_milliseconds: 10000
+subscription:
+  token_expiration_seconds: 86400

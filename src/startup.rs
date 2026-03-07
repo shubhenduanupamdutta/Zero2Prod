@@ -43,6 +43,7 @@ impl Application {
             connection_pool,
             email_client,
             configuration.application.base_url,
+            configuration.subscription.token_expiration_seconds,
         )?;
         Ok(Self {
             port,
@@ -71,10 +72,12 @@ pub fn run(
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
+    token_expiration_seconds: u32,
 ) -> Result<Server, std::io::Error> {
     let pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
+    let token_expiration_seconds = web::Data::new(token_expiration_seconds);
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
@@ -84,6 +87,7 @@ pub fn run(
             .app_data(pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())
+            .app_data(token_expiration_seconds.clone())
     })
     .listen(listener)?
     .run();
