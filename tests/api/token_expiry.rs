@@ -1,4 +1,5 @@
 use crate::helpers::spawn_app;
+use chrono::{Duration, Utc};
 use rand::{distr::Alphanumeric, rng, Rng};
 use uuid::Uuid;
 
@@ -10,8 +11,8 @@ async fn expired_token_returns_unauthorized() {
     let id = Uuid::new_v4();
     sqlx::query!(
         r#"
-        INSERT INTO subscriptions (id, email, name, status)
-        VALUES ($1, $2, $3, 'pending_confirmation')
+        INSERT INTO subscriptions (id, email, name, status, subscribed_at)
+        VALUES ($1, $2, $3, 'pending_confirmation', now())
         "#,
         id,
         "ursula_le_guin@example.com",
@@ -29,10 +30,11 @@ async fn expired_token_returns_unauthorized() {
     sqlx::query!(
         r#"
         INSERT INTO subscription_tokens (subscription_token, subscriber_id, created_at)
-        VALUES ($1, $2, now() - INTERVAL '25 hours')
+        VALUES ($1, $2, $3)
         "#,
         token,
-        id
+        id,
+        Utc::now() - Duration::hours(25),
     )
     .execute(&app.db_pool)
     .await
@@ -40,7 +42,7 @@ async fn expired_token_returns_unauthorized() {
 
     // Act
     let response = reqwest::get(&format!(
-        "{}/subscriptions/confirm?token={}",
+        "{}/subscriptions/confirm?subscription_token={}",
         &app.address, token
     ))
     .await
