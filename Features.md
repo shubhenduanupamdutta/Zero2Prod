@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD024 -->
+
 # Custom Features
 
 ---
@@ -254,3 +256,9 @@ Body: "You are already subscribed to our newsletter. If you did not request this
 
 3. **Should the "already confirmed" case send an email?**
    Proposed default: **Yes** — send a brief "you're already subscribed" email. This helps confused users while maintaining the 200 response for security. Can be toggled via config.
+
+---
+
+### Feature 1 - Finished on 2026-03-07
+
+---
