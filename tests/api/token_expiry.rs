@@ -1,44 +1,18 @@
-use crate::helpers::spawn_app;
+use crate::helpers::{generate_token, spawn_app};
 use chrono::{Duration, Utc};
-use rand::{distr::Alphanumeric, rng, Rng};
-use uuid::Uuid;
 
 #[tokio::test]
 async fn expired_token_returns_unauthorized() {
     let app = spawn_app().await;
 
     // Insert a subscriber and a token in the database
-    let id = Uuid::new_v4();
-    sqlx::query!(
-        r#"
-        INSERT INTO subscriptions (id, email, name, status, subscribed_at)
-        VALUES ($1, $2, $3, 'pending_confirmation', now())
-        "#,
-        id,
-        "ursula_le_guin@example.com",
-        "le guin"
-    )
-    .execute(&app.db_pool)
-    .await
-    .expect("Failed to insert subscriber.");
 
-    let mut rng = rng();
-    let token: String = std::iter::repeat_with(|| rng.sample(Alphanumeric))
-        .map(char::from)
-        .take(25)
-        .collect();
-    sqlx::query!(
-        r#"
-        INSERT INTO subscription_tokens (subscription_token, subscriber_id, created_at)
-        VALUES ($1, $2, $3)
-        "#,
-        token,
-        id,
-        Utc::now() - Duration::hours(25),
-    )
-    .execute(&app.db_pool)
-    .await
-    .expect("Failed to insert subscription token.");
+    let id = app
+        .insert_subscriber("ursula_le_guin@example.com", "le guin", None)
+        .await;
+    let token = generate_token();
+    app.insert_subscription_token(id, &token, Utc::now() - Duration::hours(25), None)
+        .await;
 
     // Act
     let response = reqwest::get(&format!(

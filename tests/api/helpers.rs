@@ -1,5 +1,7 @@
 use std::sync::LazyLock;
 
+use chrono::Utc;
+use rand::{Rng, distr::Alphanumeric, rng};
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
@@ -52,6 +54,17 @@ impl TestApp {
             .expect("Failed to execute request")
     }
 
+    pub async fn confirm_subscriptions(&self, token: &str) -> reqwest::Response {
+        reqwest::Client::new()
+            .get(format!(
+                "{}/subscriptions/confirm?subscription_token={}",
+                &self.address, token
+            ))
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
     /// Extract the confirmation links embedded in the request to the email API
     pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationLinks {
         let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
@@ -74,6 +87,42 @@ impl TestApp {
         ConfirmationLinks {
             link,
         }
+    }
+
+    pub async fn insert_subscriber(&self, email: &str, name: &str, status: Option<&str>) -> Uuid {
+        let subscriber_id = Uuid::new_v4();
+        let status = status.unwrap_or("pending_confirmation");
+        sqlx::query!(
+            r#"
+            INSERT INTO subscriptions (id, email, name, subscribed_at, status)
+            VALUES ($1, $2, $3, $4, $5)
+            "#,
+            subscriber_id,
+            email,
+            name,
+            Utc::now(),
+            status
+        )
+        .execute(&self.db_pool)
+        .await
+        .expect("Failed to insert test subscriber.");
+        subscriber_id
+    }
+
+    pub async fn insert_subscription_token(&self, subscriber_id: Uuid, token: &str, created_at: chrono::DateTime<Utc>, consumed_at: Option<chrono::DateTime<Utc>>) {
+        sqlx::query!(
+            r#"
+            INSERT INTO subscription_tokens (subscriber_id, subscription_token, created_at, consumed_at)
+            VALUES ($1, $2, $3, $4)
+            "#,
+            subscriber_id,
+            token,
+            created_at,
+            consumed_at
+        )
+        .execute(&self.db_pool)
+        .await
+        .expect("Failed to insert test subscription token.");
     }
 }
 
@@ -144,4 +193,12 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to run database migrations.");
 
     connection_pool
+}
+
+pub fn generate_token() -> String {
+    let mut rng = rng();
+    std::iter::repeat_with(|| rng.sample(Alphanumeric))
+        .map(char::from)
+        .take(25)
+        .collect()
 }
