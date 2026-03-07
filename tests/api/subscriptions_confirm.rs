@@ -1,5 +1,5 @@
 use crate::helpers::{generate_token, spawn_app, ConfirmationLinks};
-use chrono::{Duration, Utc};
+use chrono::{Duration, SubsecRound, Utc};
 use reqwest::StatusCode;
 use serde_json::Value;
 use wiremock::{
@@ -152,7 +152,7 @@ async fn confirm_twice_does_not_change_database() {
     let (name, email) = ("le guin", "ursula_le_guin%40gmail.com");
     let id = app.insert_subscriber(email, name, Some("confirmed")).await;
     let token = generate_token();
-    let now = Utc::now();
+    let now = Utc::now().trunc_subsecs(6); // truncate to microseconds to match Postgres precision
     app.insert_subscription_token(id, &token, now, Some(now))
         .await;
 
@@ -226,4 +226,3 @@ async fn consumed_token_past_expiry_returns_already_confirmed() {
     let response = response.json::<Value>().await.unwrap();
     assert_eq!(response["status"], "already_confirmed");
 }
-

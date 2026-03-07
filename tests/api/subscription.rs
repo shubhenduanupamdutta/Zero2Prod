@@ -277,7 +277,7 @@ async fn both_token_works_for_pending_subscriber() {
     assert!(response_1.status().is_success());
     // Check in database that the subscriber is confirmed
     let saved = sqlx::query!(
-        "SELECT status FROM subscriptions WHERE email = $1",
+        "SELECT id, status FROM subscriptions WHERE email = $1",
         "ursula_le_guin@gmail.com"
     )
     .fetch_one(&app.db_pool)
@@ -285,14 +285,24 @@ async fn both_token_works_for_pending_subscriber() {
     .expect("Failed to fetch saved subscription.");
     assert_eq!(saved.status, "confirmed");
 
-    // Reset confirmation status
+    // Reset confirmation status and consumed status
     sqlx::query!(
-        "UPDATE subscriptions SET status = 'pending_confirmation' WHERE email = $1",
+        r#"UPDATE subscriptions SET status = 'pending_confirmation' WHERE email = $1"#,
         "ursula_le_guin@gmail.com"
     )
     .execute(&app.db_pool)
     .await
     .expect("Failed to reset confirmation status.");
+
+    sqlx::query!(
+        r#"UPDATE subscription_tokens SET consumed_at = NULL
+        WHERE subscriber_id = $1
+        "#,
+        saved.id
+    )
+    .execute(&app.db_pool)
+    .await
+    .expect("Failed to reset consumed status.");
 
     // Second link should work
     let response_2 = reqwest::get(confirmation_links_2.link).await.unwrap();

@@ -195,14 +195,14 @@ pub async fn send_reminder_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
 ) -> Result<(), reqwest::Error> {
-    let html_body = format!("Welcome back to our newsletter!<br />You are already subscribed.");
+    let html_body = "Welcome back to our newsletter!<br />You are already subscribed.";
 
     email_client
         .send_email(
             new_subscriber.email,
             new_subscriber.name,
             "Welcome back!",
-            &html_body,
+            html_body,
         )
         .await
 }

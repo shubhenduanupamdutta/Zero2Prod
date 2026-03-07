@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use chrono::Utc;
-use rand::{Rng, distr::Alphanumeric, rng};
+use rand::{distr::Alphanumeric, rng, Rng};
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
@@ -109,7 +109,13 @@ impl TestApp {
         subscriber_id
     }
 
-    pub async fn insert_subscription_token(&self, subscriber_id: Uuid, token: &str, created_at: chrono::DateTime<Utc>, consumed_at: Option<chrono::DateTime<Utc>>) {
+    pub async fn insert_subscription_token(
+        &self,
+        subscriber_id: Uuid,
+        token: &str,
+        created_at: chrono::DateTime<Utc>,
+        consumed_at: Option<chrono::DateTime<Utc>>,
+    ) {
         sqlx::query!(
             r#"
             INSERT INTO subscription_tokens (subscriber_id, subscription_token, created_at, consumed_at)
