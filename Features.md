@@ -521,3 +521,9 @@ GET /subscriptions/confirm?subscription_token=...
 
 3. **Should we also return the subscriber's email in the response body?**
    Proposed default: **No** — avoid leaking PII in the response. The user already knows their email. The token alone should not reveal it.
+
+---
+
+### Feature 2 - Finished on 2026-03-07
+
+---

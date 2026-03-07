@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT subscriber_id, created_at FROM subscription_tokens WHERE subscription_token = $1",
+  "query": "SELECT subscriber_id, created_at, consumed_at\n            FROM subscription_tokens WHERE subscription_token = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -12,6 +12,11 @@
         "ordinal": 1,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "consumed_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -21,8 +26,9 @@
     },
     "nullable": [
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "3897a1662e7e8f90cf7dfa06886697735d0574a0504bb267d1e4fc7b55999f1a"
+  "hash": "a7953fb6ed603ae347903940525d58966e9abbf77cc6e1a499039467a56ff127"
 }

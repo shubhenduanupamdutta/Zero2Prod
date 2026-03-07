@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH prev AS (\n            SELECT status FROM subscriptions WHERE id = $1\n        )\n        UPDATE subscriptions\n        SET status = 'confirmed'\n        WHERE id = $1\n        RETURNING (SELECT status = 'confirmed' FROM prev) AS \"was_already_confirmed!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "was_already_confirmed!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e521315792207c11bbe0dc563ecc4ea894e56be1f2bd031dd3df4ceaf5ce6c75"
+}

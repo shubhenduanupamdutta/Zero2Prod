@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE subscription_tokens SET consumed_at = NULL\n        WHERE subscriber_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4af0f82393a19682c97b35616f8414f8e2e5f497b536fbcb80a6c66da5b160b1"
+}
