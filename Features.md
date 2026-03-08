@@ -703,7 +703,7 @@ No other logic in the handler needs to change.
 
 ### How the Validation Layer Fits Into the Request Lifecycle
 
-```
+```sh
 GET /subscriptions/confirm?subscription_token=<value>
         │
         ▼
@@ -783,5 +783,9 @@ No migrations, no configuration changes, no changes to `subscriptions.rs`.
 
 3. **Should the 400 response include an error body explaining the format requirement?**
    Proposed default: **No.** actix-web returns a bare 400 when `web::Query` extraction fails. Customising the error response would require an extractor wrapper or a custom error handler. The added complexity is not justified — the token comes from a link in a confirmation email, not from a user-facing form. A human who sees a 400 here has most likely tampered with the URL.
+
+---
+
+### Feature 3 - Finished on 2026-03-08
 
 ---
