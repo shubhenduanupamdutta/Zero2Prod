@@ -5,9 +5,11 @@ use sqlx::PgPool;
 use tracing::error;
 use uuid::Uuid;
 
+use crate::domain::SubscriptionToken;
+
 #[derive(Deserialize)]
 pub struct Parameters {
-    subscription_token: String,
+    subscription_token: SubscriptionToken,
 }
 
 struct TokenRow {
@@ -119,14 +121,14 @@ pub async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<bo
 )]
 async fn get_token_row(
     pool: &PgPool,
-    subscription_token: &str,
+    subscription_token: &SubscriptionToken,
 ) -> Result<Option<TokenRow>, sqlx::Error> {
     sqlx::query_as!(
         TokenRow,
         r#"SELECT subscriber_id, created_at, consumed_at
             FROM subscription_tokens WHERE subscription_token = $1
         "#,
-        subscription_token
+        subscription_token.as_ref()
     )
     .fetch_optional(pool)
     .await
@@ -160,12 +162,12 @@ pub async fn is_any_token_consumed(
 #[tracing::instrument(name = "Mark token as consumed", skip(pool, subscription_token))]
 pub async fn mark_token_as_consumed(
     pool: &PgPool,
-    subscription_token: &str,
+    subscription_token: &SubscriptionToken,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"UPDATE subscription_tokens SET consumed_at = $1 WHERE subscription_token = $2"#,
         Utc::now(),
-        subscription_token
+        subscription_token.as_ref()
     )
     .execute(pool)
     .await
