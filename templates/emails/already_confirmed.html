@@ -1,0 +1,123 @@
+{% extends "base.html" %} {% block title %}You Are Already Subscribed — One Mithila{% endblock title
+%} {% block preview %}You are already a valued member of the One Mithila community{% endblock
+preview %} {% block content %}
+
+<!-- Greeting -->
+<h2
+	style="
+		margin: 0 0 20px;
+		color: #5c1a1a;
+		font-family: Georgia, &quot;Times New Roman&quot;, serif;
+		font-size: 24px;
+		font-weight: bold;
+		line-height: 1.3;
+	"
+>
+	Namasté, {{ name }}!
+</h2>
+
+<!-- Membership badge -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 28px">
+	<tr>
+		<td align="center">
+			<table cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td
+						style="
+							background-color: #fdf6ec;
+							border: 2px solid #e8a020;
+							border-radius: 4px;
+							padding: 14px 28px;
+							text-align: center;
+						"
+					>
+						<span style="font-size: 22px; color: #e8a020; letter-spacing: 6px"
+							>&#10022; &#10022; &#10022;</span
+						>
+						<p
+							style="
+								margin: 8px 0 0;
+								font-size: 11px;
+								letter-spacing: 3px;
+								text-transform: uppercase;
+								color: #5c1a1a;
+								font-family: Arial, Helvetica, sans-serif;
+								font-weight: bold;
+							"
+						>
+							Active Subscriber
+						</p>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>
+
+<!-- Main body -->
+<p
+	style="
+		margin: 0 0 16px;
+		font-size: 15px;
+		color: #3d2b1f;
+		line-height: 1.75;
+		font-family: Georgia, &quot;Times New Roman&quot;, serif;
+	"
+>
+	You are already a valued subscriber of <strong>One Mithila</strong>. There is nothing you need to
+	do — your subscription is active and you will continue to receive our stories, updates, and
+	cultural celebrations.
+</p>
+
+<p
+	style="
+		margin: 0 0 32px;
+		font-size: 15px;
+		color: #3d2b1f;
+		line-height: 1.75;
+		font-family: Georgia, &quot;Times New Roman&quot;, serif;
+	"
+>
+	We are glad to have you on this journey through the heart of Mithila.
+</p>
+
+<!-- ── Thin divider ── -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 28px">
+	<tr>
+		<td style="border-bottom: 1px solid #ead9c4; font-size: 0; line-height: 0">&nbsp;</td>
+	</tr>
+</table>
+
+<!-- ── Decorative cultural quote block ── -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+	<tr>
+		<td style="background-color: #fdf6ec; border-left: 4px solid #e8a020; padding: 16px 20px">
+			<p
+				style="
+					margin: 0 0 4px;
+					font-size: 15px;
+					color: #5c1a1a;
+					line-height: 1.7;
+					font-style: italic;
+					font-family: Georgia, &quot;Times New Roman&quot;, serif;
+				"
+			>
+				&#x201C;विद्याधनं सर्वधनं प्रधानम्&#x201D;
+			</p>
+			<p
+				style="
+					margin: 0;
+					font-size: 12px;
+					color: #a07850;
+					font-family: Arial, Helvetica, sans-serif;
+				"
+			>
+				Knowledge is the foremost of all wealth.
+			</p>
+		</td>
+	</tr>
+</table>
+
+{% endblock content %} {% block footer_text %} If you did not expect this email, someone may have
+entered your address by mistake. No changes have been made to your subscription. {% endblock
+footer_text %}

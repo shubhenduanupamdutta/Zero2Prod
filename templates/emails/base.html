@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>{% block title %}One Mithila Newsletter{% endblock title %}</title>
+	</head>
+	<body
+		style="
+			margin: 0;
+			padding: 0;
+			background-color: #f5ede0;
+			font-family: Georgia, &quot;Times New Roman&quot;, serif;
+		"
+	>
+		<!--
+    Preheader / Preview text — shown in the inbox summary line by email clients.
+    Hidden visually via display:none + max-height:0.
+  -->
+		<div
+			style="
+				display: none;
+				max-height: 0;
+				overflow: hidden;
+				mso-hide: all;
+				font-size: 1px;
+				color: #f5ede0;
+			"
+		>
+			{% block preview %}One Mithila Newsletter{% endblock preview %}
+		</div>
+
+		<!-- ============================================================ -->
+		<!--  Outer wrapper — sets page background for all email clients  -->
+		<!-- ============================================================ -->
+		<table
+			width="100%"
+			cellpadding="0"
+			cellspacing="0"
+			border="0"
+			style="background-color: #f5ede0; padding: 40px 16px"
+		>
+			<tr>
+				<td align="center" valign="top">
+					<!-- ================================ -->
+					<!--  Email container — max 600 px    -->
+					<!-- ================================ -->
+					<table
+						width="600"
+						cellpadding="0"
+						cellspacing="0"
+						border="0"
+						style="max-width: 600px; width: 100%; border-collapse: collapse"
+					>
+						<!-- ─── Top decorative stripe (Mithila folk-art border) ─── -->
+						<tr>
+							<td
+								height="6"
+								style="
+									background-color: #e8a020;
+									font-size: 0;
+									line-height: 0;
+									mso-line-height-rule: exactly;
+								"
+							>
+								&nbsp;
+							</td>
+						</tr>
+						<tr>
+							<td
+								height="3"
+								style="
+									background-color: #5c1a1a;
+									font-size: 0;
+									line-height: 0;
+									mso-line-height-rule: exactly;
+								"
+							>
+								&nbsp;
+							</td>
+						</tr>
+						<tr>
+							<td
+								height="3"
+								style="
+									background-color: #2c6e49;
+									font-size: 0;
+									line-height: 0;
+									mso-line-height-rule: exactly;
+								"
+							>
+								&nbsp;
+							</td>
+						</tr>
+
+						<!-- ─────────────────── HEADER ─────────────────── -->
+						<tr>
+							<td style="background-color: #5c1a1a; padding: 36px 48px 30px; text-align: center">
+								<!-- Brand name -->
+								<h1
+									style="
+										margin: 0;
+										color: #e8a020;
+										font-family: Georgia, &quot;Times New Roman&quot;, serif;
+										font-size: 34px;
+										font-weight: bold;
+										letter-spacing: 5px;
+										text-transform: uppercase;
+										line-height: 1.2;
+									"
+								>
+									One Mithila
+								</h1>
+
+								<!-- Tagline -->
+								<p
+									style="
+										margin: 10px 0 0;
+										color: #f5d89a;
+										font-family: Arial, Helvetica, sans-serif;
+										font-size: 11px;
+										letter-spacing: 3px;
+										text-transform: uppercase;
+									"
+								>
+									Stories from the Heart of Mithila
+								</p>
+
+								<!-- Decorative ornamental divider -->
+								<table
+									width="100%"
+									cellpadding="0"
+									cellspacing="0"
+									border="0"
+									style="margin-top: 22px"
+								>
+									<tr>
+										<td style="border-bottom: 1px solid #8b4513">&nbsp;</td>
+										<td
+											width="32"
+											style="
+												text-align: center;
+												color: #e8a020;
+												font-size: 18px;
+												padding: 0 8px;
+												line-height: 1;
+											"
+										>
+											&#10022;
+										</td>
+										<td style="border-bottom: 1px solid #8b4513">&nbsp;</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+
+						<!-- ─────────────────── CONTENT ─────────────────── -->
+						<!--
+            Child templates override this block to provide the
+            email-specific body. The white card is the visual "page".
+          -->
+						<tr>
+							<td
+								style="
+									background-color: #ffffff;
+									padding: 44px 52px 40px;
+									border-left: 1px solid #e8d5b8;
+									border-right: 1px solid #e8d5b8;
+								"
+							>
+								{% block content %}{% endblock content %}
+							</td>
+						</tr>
+
+						<!-- ─── Bottom decorative stripe (mirror of top) ─── -->
+						<tr>
+							<td
+								height="3"
+								style="
+									background-color: #2c6e49;
+									font-size: 0;
+									line-height: 0;
+									mso-line-height-rule: exactly;
+								"
+							>
+								&nbsp;
+							</td>
+						</tr>
+						<tr>
+							<td
+								height="3"
+								style="
+									background-color: #5c1a1a;
+									font-size: 0;
+									line-height: 0;
+									mso-line-height-rule: exactly;
+								"
+							>
+								&nbsp;
+							</td>
+						</tr>
+						<tr>
+							<td
+								height="6"
+								style="
+									background-color: #e8a020;
+									font-size: 0;
+									line-height: 0;
+									mso-line-height-rule: exactly;
+								"
+							>
+								&nbsp;
+							</td>
+						</tr>
+
+						<!-- ─────────────────── FOOTER ─────────────────── -->
+						<tr>
+							<td
+								style="
+									background-color: #f5ede0;
+									padding: 24px 52px 28px;
+									text-align: center;
+									border-top: 1px solid #d4b896;
+								"
+							>
+								<!-- Ornament -->
+								<p style="margin: 0 0 10px; color: #c8a060; font-size: 14px; letter-spacing: 4px">
+									&#10022; &nbsp; &#10022; &nbsp; &#10022;
+								</p>
+
+								<!-- Footer text — child templates may override -->
+								<p
+									style="
+										margin: 0 0 6px;
+										font-size: 12px;
+										color: #8b6347;
+										line-height: 1.6;
+										font-family: Arial, Helvetica, sans-serif;
+									"
+								>
+									{% block footer_text %} If you did not sign up for One&nbsp;Mithila Newsletter,
+									you can safely ignore this email. {% endblock footer_text %}
+								</p>
+
+								<!-- Copyright -->
+								<p
+									style="
+										margin: 10px 0 0;
+										font-size: 11px;
+										color: #a07850;
+										font-family: Arial, Helvetica, sans-serif;
+									"
+								>
+									&copy; 2026 One Mithila &nbsp;&middot;&nbsp; All rights reserved
+								</p>
+							</td>
+						</tr>
+					</table>
+					<!-- /email container -->
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>
