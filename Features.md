@@ -1201,3 +1201,268 @@ These tests call `render_*` directly without spinning up the HTTP server. They r
 ### Feature 4 - Finished on 2026-03-08
 
 ---
+
+## Feature 5: Background Token Cleanup Task
+
+---
+
+### Problem Statement
+
+The `subscription_tokens` table has no cleanup mechanism. Every token ever issued — whether consumed, expired, or abandoned — remains in the table indefinitely. Over time this creates two concrete problems:
+
+1. **Growing search space** — Every `SELECT` against `subscription_tokens` (token lookup on confirmation) scans an ever-larger table. As the subscriber base grows, so does the noise of inert rows.
+2. **Operational hygiene** — A table that only ever grows is harder to reason about, back up, and monitor. Queries like "how many active tokens are pending right now?" become inaccurate without additional filters.
+
+A token is functionally inert once it is either consumed (`consumed_at IS NOT NULL`) or expired (`created_at < now() - token_expiry_seconds`). Since the validity window is 24 hours, any token older than 24 hours is guaranteed to be either consumed or expired — it cannot be used to confirm a subscription under any circumstances.
+
+The solution is a background task that periodically deletes tokens older than a configurable retention window (defaulting to **72 hours** — three times the validity window). This task runs inside the existing tokio runtime, requires no additional dependencies, and does not affect the request-serving path.
+
+---
+
+### Current State (What We Have)
+
+| Component                        | Details                                                                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **`subscription_tokens` schema** | `subscription_token` (text PK), `subscriber_id` (uuid FK), `created_at` (timestamptz NOT NULL), `consumed_at` (timestamptz) |
+| **Token validity**               | Configurable via `subscription.token_expiration_seconds` (default: 86400 — 24 hours)                                        |
+| **Token lifecycle**              | Created on subscribe, optionally consumed on confirm, never deleted                                                         |
+| **Cleanup**                      | None — no DELETE ever runs against `subscription_tokens`                                                                    |
+| **Background tasks**             | None — the application has no existing background task infrastructure                                                       |
+
+---
+
+### Desired Behavior
+
+A background loop starts when the application starts and runs for the lifetime of the process. On each tick:
+
+1. **DELETE** all rows from `subscription_tokens` where `created_at < now() - <retention_window>`.
+2. Log the number of rows deleted at the `INFO` level (or `DEBUG` if zero rows were deleted).
+3. Sleep for the configured `cleanup_interval` before the next tick.
+
+The retention window defaults to **72 hours** (3× the 24-hour validity window). The cleanup interval defaults to **1 hour**. Both are configurable in `base.yaml`.
+
+#### Why 72 Hours?
+
+| Window       | Deleted at            | Benefit                                                                                                                                    |
+| ------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 24h (1×)     | Immediately on expiry | Minimum footprint, but a token used at hour 23 and clicked again at hour 25 returns a confusing "not found" instead of "already confirmed" |
+| 48h (2×)     | 24h after expiry      | Allows the consumed-beats-expired UX to work for up to 24h after the validity window closes                                                |
+| **72h (3×)** | **48h after expiry**  | **Comfortable audit trail; tokens eligible for re-click UX for a full extra day; low storage cost for the benefit**                        |
+| 7d           | 6d after expiry       | Negligible UX gain over 72h; significant table bloat for high-volume deployments                                                           |
+
+Tokens older than 72 hours have been expired for at least 48 hours. Any subscriber whose token expired 48h ago had ample time to re-subscribe and generate a fresh token. Retaining rows beyond that point serves no purpose.
+
+---
+
+### Implementation Plan
+
+#### 1. Add Configuration Fields
+
+In `src/configuration.rs`, extend `SubscriptionSettings`:
+
+```rust
+#[derive(serde::Deserialize, Clone)]
+pub struct SubscriptionSettings {
+    pub token_expiration_seconds: u32,
+    pub token_cleanup_interval_seconds: u32,   // NEW: how often the cleanup runs
+    pub token_retention_hours: u32,            // NEW: how old a token must be to be deleted
+}
+```
+
+In `configuration/base.yaml`:
+
+```yaml
+subscription:
+  token_expiration_seconds: 86400 # 24 hours
+  token_cleanup_interval_seconds: 3600 # run cleanup every 1 hour
+  token_retention_hours: 72 # delete tokens older than 72 hours
+```
+
+#### 2. Create `src/token_cleanup.rs`
+
+A dedicated module keeps the background-task logic separate from startup and route code:
+
+```rust
+use sqlx::PgPool;
+use std::time::Duration;
+
+/// Spawns a background tokio task that periodically deletes expired tokens.
+/// The task runs until the process exits and cannot be cancelled externally.
+///
+/// # Arguments
+/// * `pool`             – Connection pool shared with the HTTP server.
+/// * `interval_secs`    – How frequently to run the cleanup (seconds).
+/// * `retention_hours`  – Delete tokens older than this many hours.
+pub fn spawn_token_cleanup_task(pool: PgPool, interval_secs: u32, retention_hours: u32) {
+    tokio::spawn(async move {
+        let interval = Duration::from_secs(interval_secs as u64);
+        let mut ticker = tokio::time::interval(interval);
+
+        loop {
+            ticker.tick().await; // first tick fires immediately at t=0
+            match delete_expired_tokens(&pool, retention_hours).await {
+                Ok(rows) => {
+                    if rows > 0 {
+                        tracing::info!(
+                            deleted_rows = rows,
+                            "Token cleanup: deleted {} expired subscription token(s).",
+                            rows
+                        );
+                    } else {
+                        tracing::debug!("Token cleanup: no expired tokens to delete.");
+                    }
+                }
+                Err(e) => {
+                    tracing::error!(
+                        error = ?e,
+                        "Token cleanup: failed to delete expired tokens."
+                    );
+                    // Do NOT panic — a transient DB error should not crash the server.
+                    // The next tick will retry.
+                }
+            }
+        }
+    });
+}
+
+#[tracing::instrument(name = "Delete expired subscription tokens", skip(pool))]
+async fn delete_expired_tokens(pool: &PgPool, retention_hours: u32) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM subscription_tokens
+        WHERE created_at < NOW() - make_interval(hours => $1)
+        "#,
+        retention_hours as i32
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}
+```
+
+Key design decisions baked into this module:
+
+- **`tokio::time::interval` instead of `tokio::time::sleep`** — `interval` fires immediately on the first tick (t=0) and then every `interval_secs`. This cleans up stale tokens from a previous run at startup rather than waiting for the first interval to elapse.
+- **No `unwrap()` / no panic on error** — a transient database error (e.g., a brief network partition to Postgres) logs at ERROR level and retries on the next tick. A cleanup failure is not fatal to the application.
+- **`make_interval(hours => $1)`** — using a PostgreSQL interval expression keeps the boundary calculation inside the DB, avoiding clock-skew between the application server and the database server.
+
+#### 3. Wire Up in `startup.rs`
+
+In `Application::build()`, after constructing the connection pool and before building the HTTP server, spawn the cleanup task:
+
+```rust
+use crate::token_cleanup::spawn_token_cleanup_task;
+
+impl Application {
+    pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
+        let connection_pool = get_connection_pool(&configuration.database);
+
+        // Spawn background token cleanup task
+        spawn_token_cleanup_task(
+            connection_pool.clone(),
+            configuration.subscription.token_cleanup_interval_seconds,
+            configuration.subscription.token_retention_hours,
+        );
+
+        // ... rest of build() unchanged
+    }
+}
+```
+
+The pool is cloned (cheap — `PgPool` is internally `Arc`-backed) and moved into the background task. The HTTP server continues to use its own clone of the same pool.
+
+#### 4. Register the new module in `lib.rs`
+
+```rust
+pub mod token_cleanup;
+```
+
+---
+
+### How the Task Fits Into the Runtime
+
+```sh
+tokio runtime (multi-thread)
+  │
+  ├── actix-web System  (handles HTTP requests)
+  │       ├── Worker thread 0
+  │       ├── Worker thread 1
+  │       └── ...
+  │
+  └── cleanup task  (tokio::spawn — green thread, shares the runtime)
+          │
+          ├── tick 0 (t=0s)   → DELETE WHERE created_at < now() - 72h
+          ├── tick 1 (t=3600s) → DELETE WHERE created_at < now() - 72h
+          └── ...
+```
+
+The cleanup task is a lightweight async green thread. It spends almost all of its time sleeping in `ticker.tick().await`. It does not block any HTTP worker threads, it holds no locks, and it has no interaction with the request-serving path other than sharing the connection pool.
+
+---
+
+### Graceful Shutdown Behaviour
+
+`tokio::spawn` returns a `JoinHandle` that is currently dropped. This means the cleanup task is **detached** — it will be cancelled when the tokio runtime shuts down, but it will not block or delay the shutdown. Since the DELETE query is a single atomic SQL statement with no multi-step transaction, a mid-flight cancellation at most means the next run (after restart) re-issues the same DELETE — which is harmless (idempotent).
+
+If a future requirement demands that cleanup runs to completion before shutdown (e.g., for compliance), the `JoinHandle` can be stored and `.await`-ed during the shutdown sequence. For now, detached is correct.
+
+---
+
+### Test Cases
+
+#### Unit Tests — `src/token_cleanup.rs` (`#[cfg(test)]`)
+
+Unit tests require a real database (the function issues SQL). They use the same `spawn_app` + `PgPool` pattern as existing integration tests.
+
+| #   | Test Name                                 | Description                                                                             | Expected                                     |
+| --- | ----------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 1   | `delete_expired_tokens_removes_old_rows`  | Insert a token with `created_at` set to 73h ago; call `delete_expired_tokens(pool, 72)` | Token row is deleted; `rows_affected() == 1` |
+| 2   | `delete_expired_tokens_keeps_recent_rows` | Insert a token with `created_at` set to 1h ago; call `delete_expired_tokens(pool, 72)`  | Token row remains; `rows_affected() == 0`    |
+
+#### Integration / Smoke Test
+
+| #   | Test Name                                          | Description                                                                                                     | Expected                                                            |
+| --- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 7   | `spawn_cleanup_task_does_not_crash_on_empty_table` | Spawn the app (which starts the cleanup task); wait 2 ticks with a 1s interval; assert the app is still running | No panic, no crash, server responds to `GET /health_check` with 200 |
+
+---
+
+### Security Considerations
+
+- **No data loss for valid tokens** — only tokens older than 72 hours are deleted. All tokens within the 24-hour validity window are guaranteed to survive every cleanup run.
+- **Consumed tokens also cleaned up** — `consumed_at` is not part of the deletion predicate. Consumed tokens older than 72 hours are deleted along with expired ones. This is correct: a consumed token 73 hours old has no further utility. The `consumed_at` timestamp has already served its audit purpose (stored for 72 hours after creation, not 72 hours after consumption — this is intentional and keeps the predicate simple).
+- **No injection surface** — `retention_hours` flows from trusted application configuration, not from user input. It is bound as a typed SQL parameter ($1), not string-interpolated.
+- **Transient failure is silent to end users** — a cleanup failure does not degrade the subscription or confirmation flow in any way. The only observable effect of a full cleanup failure is that the table grows unbounded, reverting to the pre-feature state.
+
+---
+
+### Files to Change
+
+| File                      | Change                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/configuration.rs`    | Add `token_cleanup_interval_seconds: u32` and `token_retention_hours: u32` to `SubscriptionSettings` |
+| `configuration/base.yaml` | Add `subscription.token_cleanup_interval_seconds: 3600` and `subscription.token_retention_hours: 72` |
+| `src/token_cleanup.rs`    | **New file.** `spawn_token_cleanup_task()` and `delete_expired_tokens()` with tests                  |
+| `src/lib.rs`              | Add `pub mod token_cleanup;`                                                                         |
+| `src/startup.rs`          | Call `spawn_token_cleanup_task()` in `Application::build()` after pool construction                  |
+
+No migrations required — the `created_at` column added in Feature 1 is the only prerequisite, and it already exists.
+
+---
+
+### Open Questions
+
+1. **Should the first tick fire immediately (at t=0) or after the first interval?**
+   Proposed default: **Immediately (t=0)**, using `tokio::time::interval` which ticks at t=0. This cleans up any tokens that accumulated during a prior run's downtime before the server starts serving traffic. Behaviour can be changed to delayed first tick by calling `ticker.tick().await` once before the loop without acting on it, or by switching to `tokio::time::sleep` inside the loop.
+
+2. **Should deleted row counts be surfaced as a metric (e.g., Prometheus counter)?**
+   Proposed default: **No — structured log only for now.** The `tracing::info!` line with `deleted_rows = rows` as a structured field is sufficient for log-based monitoring. If a metrics layer (e.g., `metrics` crate + Prometheus exporter) is added in the future, the counter can be incremented in the same location.
+
+3. **Should the cleanup logic be moved into a PostgreSQL scheduled job (`pg_cron`) rather than tokio?**
+   Proposed default: **No for now.** The tokio approach requires no database extension and works on all Postgres providers. `pg_cron` is strictly more resilient to application restarts and is the right choice if the application is ever deployed in a zero-downtime multi-replica setup where the DB outlives individual app instances. This can be migrated later without any schema changes — the SQL DELETE is identical.
+
+4. **Should consumed tokens use a different (shorter) retention window than unconsumed expired tokens?**
+   Proposed default: **No.** Maintaining a single threshold (`created_at < now() - retention_hours`) keeps the DELETE predicate simple, fast (the `created_at` column is a candidate for indexing), and predictable. A two-threshold approach (e.g., delete consumed tokens after 24h, expired-unconsumed after 72h) adds complexity for negligible storage benefit.
+
+---
