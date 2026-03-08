@@ -226,3 +226,22 @@ async fn consumed_token_past_expiry_returns_already_confirmed() {
     let response = response.json::<Value>().await.unwrap();
     assert_eq!(response["status"], "already_confirmed");
 }
+
+#[tokio::test]
+async fn malformed_token_returns_400() {
+    // Arrange
+    let tokens = vec![
+        "a2345678901234567890123$".to_string(),
+        "a2345678901234567890123".to_string(),
+        "a2345678901234 6789012345".to_string(),
+        "".to_string(),
+    ];
+    let app = spawn_app().await;
+    for token in tokens {
+        // Act
+        let response = app.confirm_subscriptions(&token).await;
+
+        // Assert
+        assert_eq!(response.status().as_u16(), StatusCode::BAD_REQUEST);
+    }
+}
