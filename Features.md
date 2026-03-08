@@ -1466,3 +1466,7 @@ No migrations required — the `created_at` column added in Feature 1 is the onl
    Proposed default: **No.** Maintaining a single threshold (`created_at < now() - retention_hours`) keeps the DELETE predicate simple, fast (the `created_at` column is a candidate for indexing), and predictable. A two-threshold approach (e.g., delete consumed tokens after 24h, expired-unconsumed after 72h) adds complexity for negligible storage benefit.
 
 ---
+
+### Feature 5 - Finished on 2026-03-08
+
+---

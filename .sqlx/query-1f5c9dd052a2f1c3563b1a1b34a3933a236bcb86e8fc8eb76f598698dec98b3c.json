@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM subscription_tokens\n        WHERE created_at < $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1f5c9dd052a2f1c3563b1a1b34a3933a236bcb86e8fc8eb76f598698dec98b3c"
+}
