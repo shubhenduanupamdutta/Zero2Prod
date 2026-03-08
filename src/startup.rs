@@ -1,4 +1,5 @@
 use crate::configuration::{DatabaseSettings, Settings};
+use crate::token_cleanup::spawn_token_cleanup_task;
 use crate::{
     email_client::{EmailClient, EmailTemplateEngine},
     routes::{confirm, health_check, subscribe},
@@ -17,6 +18,12 @@ pub struct Application {
 impl Application {
     pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
         let connection_pool = get_connection_pool(&configuration.database);
+
+        spawn_token_cleanup_task(
+            connection_pool.clone(),
+            configuration.subscription.token_cleanup_interval_hours,
+            configuration.subscription.token_retention_hours,
+        );
 
         let (sender_name, sender_email) = configuration
             .email_client
