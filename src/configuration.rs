@@ -18,6 +18,10 @@ pub struct Settings {
 pub struct SubscriptionSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub token_expiration_seconds: u32,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub token_cleanup_interval_hours: u32,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub token_retention_hours: u32,
 }
 
 #[derive(Deserialize, Clone)]
