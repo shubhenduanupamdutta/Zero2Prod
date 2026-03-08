@@ -1,6 +1,6 @@
 use crate::configuration::{DatabaseSettings, Settings};
 use crate::{
-    email_client::EmailClient,
+    email_client::{EmailClient, EmailTemplateEngine},
     routes::{confirm, health_check, subscribe},
 };
 use actix_web::{dev::Server, web, App, HttpServer};
@@ -78,6 +78,9 @@ pub fn run(
     let email_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
     let token_expiration_seconds = web::Data::new(token_expiration_seconds);
+    let email_template_engine = web::Data::new(
+        EmailTemplateEngine::new("templates").expect("Failed to initialize email template engine"),
+    );
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
@@ -88,6 +91,7 @@ pub fn run(
             .app_data(email_client.clone())
             .app_data(base_url.clone())
             .app_data(token_expiration_seconds.clone())
+            .app_data(email_template_engine.clone())
     })
     .listen(listener)?
     .run();

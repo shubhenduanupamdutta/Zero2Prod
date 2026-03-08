@@ -1,9 +1,11 @@
 use crate::domain::{SubscriberEmail, SubscriberName};
 use reqwest::{Client, Url};
 pub mod email_body;
+pub mod templates;
 
 use email_body::{EmailBody, NameAndEmail, ParsedEmail, ParsedName};
 use secrecy::{ExposeSecret, SecretString};
+pub use templates::EmailTemplateEngine;
 
 pub struct EmailClient {
     http_client: Client,

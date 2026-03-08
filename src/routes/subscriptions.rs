@@ -1,6 +1,6 @@
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
-    email_client::EmailClient,
+    email_client::{EmailClient, EmailTemplateEngine},
     startup::ApplicationBaseUrl,
 };
 use actix_web::{web, HttpResponse};
@@ -39,7 +39,7 @@ fn generate_subscription_token() -> String {
         .collect()
 }
 
-#[tracing::instrument(name="Adding a new subscriber", skip(form, pool, email_client, base_url),
+#[tracing::instrument(name="Adding a new subscriber", skip(form, pool, email_client, base_url, template_engine),
  fields(
     subscriber_email=%form.email,
     subscriber_name=%form.name
@@ -49,6 +49,7 @@ pub async fn subscribe(
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
+    template_engine: web::Data<EmailTemplateEngine>,
 ) -> HttpResponse {
     let new_subscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber,
@@ -69,7 +70,7 @@ pub async fn subscribe(
         if transaction.commit().await.is_err() {
             return HttpResponse::InternalServerError().finish();
         }
-        if send_reminder_email(&email_client, new_subscriber)
+        if send_reminder_email(&email_client, new_subscriber, &template_engine)
             .await
             .is_err()
         {
@@ -95,6 +96,7 @@ pub async fn subscribe(
         new_subscriber,
         &base_url.0,
         &subscription_token,
+        &template_engine,
     )
     .await
     .is_err()
@@ -129,22 +131,33 @@ async fn store_token(
 
 #[tracing::instrument(
     name = "Send a confirmation email to a new subscriber",
-    skip(email_client, new_subscriber, base_url, subscription_token)
+    skip(
+        email_client,
+        new_subscriber,
+        base_url,
+        subscription_token,
+        email_template_engine
+    )
 )]
 pub async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
     base_url: &str,
     subscription_token: &str,
+    email_template_engine: &EmailTemplateEngine,
 ) -> Result<(), reqwest::Error> {
     let confirmation_link = format!(
         "{}/subscriptions/confirm?subscription_token={}",
         base_url, subscription_token
     );
-    let html_body = format!(
-        "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
-        confirmation_link
-    );
+    let html_body = email_template_engine
+        .render_confirmation_email(new_subscriber.name.as_ref(), &confirmation_link)
+        .unwrap_or_else(|_| {
+            format!(
+                "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
+                confirmation_link
+            )
+        });
 
     email_client
         .send_email(
@@ -189,20 +202,25 @@ async fn insert_subscriber(
 
 #[tracing::instrument(
     name = "Send a reminder email to an already confirmed subscriber",
-    skip(email_client, new_subscriber)
+    skip(email_client, new_subscriber, email_template_engine)
 )]
 pub async fn send_reminder_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
+    email_template_engine: &EmailTemplateEngine,
 ) -> Result<(), reqwest::Error> {
-    let html_body = "Welcome back to our newsletter!<br />You are already subscribed.";
+    let html_body = email_template_engine
+        .render_already_subscribed_email(new_subscriber.name.as_ref())
+        .unwrap_or_else(|_| {
+            "Welcome back to our newsletter!<br />You are already subscribed.".to_string()
+        });
 
     email_client
         .send_email(
             new_subscriber.email,
             new_subscriber.name,
-            "Welcome back!",
-            html_body,
+            "You are already subscribed!",
+            &html_body,
         )
         .await
 }
