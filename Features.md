@@ -1,4 +1,5 @@
 <!-- markdownlint-disable MD024 -->
+<!-- markdownlint-disable MD010 -->
 
 # Custom Features
 
@@ -787,5 +788,412 @@ No migrations, no configuration changes, no changes to `subscriptions.rs`.
 ---
 
 ### Feature 3 - Finished on 2026-03-08
+
+---
+
+## Feature 4: Tera-Powered HTML Email Templates
+
+---
+
+### Problem Statement
+
+The two emails sent by the application — the subscription confirmation email and the "already subscribed" reminder email — are assembled by concatenating raw HTML strings directly inside `send_confirmation_email()` and `send_reminder_email()` in `src/routes/subscriptions.rs`:
+
+```rust
+// confirmation email
+let html_body = format!(
+    "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
+    confirmation_link
+);
+
+// reminder email
+let html_body = "Welcome back to our newsletter!<br />You are already subscribed.";
+```
+
+This approach has several drawbacks:
+
+1. **Ugly output** — inline HTML fragments with no structure, no styling, no branding. Every major mail client renders these as plain unstyled text on a white background.
+2. **No raw-link fallback** — many corporate and mobile mail clients strip `<a>` tags or block external links behind a click-tracker. A subscriber who cannot click the button has no way to retrieve their confirmation URL.
+3. **Mixing concerns** — template logic is tangled inside route handler functions. Changing the email copy requires touching the business-logic layer.
+4. **No type-level rendering contract** — the HTML is an unverifiable string. Missing or misspelled variable names are silent bugs discovered only when a subscriber complains.
+5. **Not extensible** — adding a third email type (e.g., "subscription cancelled") means adding more inline format strings rather than adding a new template file.
+
+---
+
+### Current State (What We Have)
+
+| Component                 | Details                                                                   |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `send_confirmation_email` | Builds HTML via `format!()`, sends via `EmailClient::send_email()`        |
+| `send_reminder_email`     | Hardcoded HTML literal string, sends via `EmailClient::send_email()`      |
+| `EmailClient::send_email` | Accepts `html_content: &str`; no knowledge of how the string was produced |
+| Template engine           | None. No crate used.                                                      |
+| Template files            | None. No `templates/` directory exists.                                   |
+
+---
+
+### Desired Behavior
+
+All outbound emails are rendered from Tera templates stored in `templates/emails/`. Template rendering is handled by a dedicated `EmailTemplateEngine` struct that wraps a `tera::Tera` instance and exposes one method per email type. Route handlers call these methods to obtain a finalized HTML string, which they pass to `EmailClient::send_email()` unchanged.
+
+#### Confirmation Email (`templates/emails/confirmation.html`)
+
+Rendered when a new subscriber (or a pending re-subscriber) needs to confirm their address.
+
+Template variables:
+
+| Variable            | Type     | Description                                                             |
+| ------------------- | -------- | ----------------------------------------------------------------------- |
+| `name`              | `String` | The subscriber's display name                                           |
+| `confirmation_link` | `String` | Full confirmation URL, e.g. `https://myapp.com/subscriptions/confirm?…` |
+
+Required content:
+
+- A styled header (newsletter name / branding).
+- A personalized greeting: _"Hi {{ name }},"_.
+- A short message: _"Thank you for signing up! Please confirm your subscription."_
+- A prominent CTA button (`<a href="{{ confirmation_link }}">Confirm my subscription</a>`) styled to look like a button via inline CSS (required by most email clients).
+- A **raw-link fallback** section clearly labelled (e.g., _"If the button doesn't work, copy and paste this link into your browser:"_) followed by the URL rendered as visible text and also as a clickable `<a>` tag.
+- A footer: _"If you didn't sign up for this newsletter, you can safely ignore this email."_
+
+#### Already-Subscribed Email (`templates/emails/already_subscribed.html`)
+
+Rendered when a subscriber whose status is `confirmed` attempts to subscribe again.
+
+Template variables:
+
+| Variable | Type     | Description                   |
+| -------- | -------- | ----------------------------- |
+| `name`   | `String` | The subscriber's display name |
+
+Required content:
+
+- The same styled header.
+- A personalized greeting: _"Hi {{ name }},"_.
+- Friendly body: _"It looks like you're already subscribed to our newsletter — no action needed. You'll continue receiving our updates as usual."_
+- A reassurance footer: _"If you didn't expect this email, someone may have entered your address by mistake. You can safely ignore it."_
+
+---
+
+### Template HTML Structure (Reference)
+
+Both templates follow the same outer shell (inlined CSS for email-client compatibility):
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title><!-- email-specific title --></title>
+	</head>
+	<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+		<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:40px 0;">
+			<tr>
+				<td align="center">
+					<table
+						width="600"
+						cellpadding="0"
+						cellspacing="0"
+						style="background:#ffffff;border-radius:8px;overflow:hidden;"
+					>
+						<!-- Header -->
+						<tr>
+							<td style="background:#2c3e50;padding:32px 40px;text-align:center;">
+								<h1 style="color:#ffffff;margin:0;font-size:24px;">Zero2Prod Newsletter</h1>
+							</td>
+						</tr>
+
+						<!-- Body -->
+						<tr>
+							<td style="padding:40px;">
+								<!-- email-specific content injected here by Tera -->
+							</td>
+						</tr>
+
+						<!-- Footer -->
+						<tr>
+							<td
+								style="background:#ecf0f1;padding:24px 40px;text-align:center;
+                        font-size:12px;color:#7f8c8d;"
+							>
+								<!-- email-specific footer -->
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>
+```
+
+The CTA button (confirmation email only) is a plain `<a>` styled with inline CSS — no JavaScript, no `:hover` pseudo-classes — because email clients do not execute scripts and many ignore `<style>` blocks:
+
+```html
+<a
+	href="{{ confirmation_link }}"
+	style="display:inline-block;padding:14px 28px;background:#2980b9;
+          color:#ffffff;text-decoration:none;border-radius:4px;
+          font-size:16px;font-weight:bold;"
+>
+	Confirm my subscription
+</a>
+```
+
+The raw-link fallback sits below the button:
+
+```html
+<p style="margin-top:24px;font-size:13px;color:#555555;">
+	If the button above doesn't work, copy and paste this link into your browser:
+</p>
+<p style="word-break:break-all;">
+	<a href="{{ confirmation_link }}" style="color:#2980b9;">{{ confirmation_link }}</a>
+</p>
+```
+
+---
+
+### Implementation Plan
+
+#### 1. Add `tera` to `Cargo.toml`
+
+```toml
+tera = "1"
+```
+
+No feature flags required for basic usage.
+
+#### 2. Create `templates/emails/`
+
+```sh
+templates/
+  emails/
+    confirmation.html
+    already_subscribed.html
+```
+
+Both files are full HTML documents following the structure above. They are stored in the repository root and shipped alongside the binary (or embedded at compile time — see Open Questions).
+
+#### 3. Create `src/email_client/templates.rs`
+
+Define `EmailTemplateEngine` as a newtype around `tera::Tera`:
+
+```rust
+pub struct EmailTemplateEngine(tera::Tera);
+```
+
+Provide a constructor that discovers templates from a directory glob:
+
+```rust
+impl EmailTemplateEngine {
+    /// Load all `*.html` templates from `<templates_dir>/emails/`.
+    /// Returns an error if the directory is unreachable or any template fails to parse.
+    pub fn new(templates_dir: &str) -> Result<Self, tera::Error> {
+        let glob = format!("{}/emails/**/*.html", templates_dir);
+        let tera = tera::Tera::new(&glob)?;
+        Ok(Self(tera))
+    }
+}
+```
+
+Provide one rendering method per email type. Each method accepts the exact variables its template requires, builds a `tera::Context`, and calls `self.0.render()`:
+
+```rust
+impl EmailTemplateEngine {
+    pub fn render_confirmation_email(
+        &self,
+        name: &str,
+        confirmation_link: &str,
+    ) -> Result<String, tera::Error> {
+        let mut ctx = tera::Context::new();
+        ctx.insert("name", name);
+        ctx.insert("confirmation_link", confirmation_link);
+        self.0.render("confirmation.html", &ctx)
+    }
+
+    pub fn render_already_subscribed_email(
+        &self,
+        name: &str,
+    ) -> Result<String, tera::Error> {
+        let mut ctx = tera::Context::new();
+        ctx.insert("name", name);
+        self.0.render("already_subscribed.html", &ctx)
+    }
+}
+```
+
+Export the module from `src/email_client/mod.rs`:
+
+```rust
+pub mod templates;
+pub use templates::EmailTemplateEngine;
+```
+
+#### 4. Add `templates_dir` to `ApplicationSettings`
+
+In `src/configuration.rs`, add a field to `ApplicationSettings`:
+
+```rust
+pub struct ApplicationSettings {
+    pub port: u16,
+    pub host: String,
+    pub base_url: String,
+    pub templates_dir: String,   // NEW
+}
+```
+
+Add the default value to `configuration/base.yaml`:
+
+```yaml
+application:
+  templates_dir: "templates"
+```
+
+Override with an absolute path in production (`configuration/production.yaml`) if the binary is run from a directory that does not contain `templates/`:
+
+```yaml
+application:
+  templates_dir: "/app/templates"
+```
+
+#### 5. Initialise `EmailTemplateEngine` in `startup.rs`
+
+In `Application::build()`:
+
+```rust
+let engine = EmailTemplateEngine::new(&configuration.application.templates_dir)
+    .expect("Failed to initialise email template engine");
+```
+
+In `run()`, add `engine: EmailTemplateEngine` as a parameter, wrap it in `web::Data`, and register it:
+
+```rust
+let engine = web::Data::new(engine);
+// ...
+.app_data(engine.clone())
+```
+
+#### 6. Modify `subscriptions.rs`
+
+Accept `web::Data<EmailTemplateEngine>` in `subscribe()`:
+
+```rust
+pub async fn subscribe(
+    form: web::Form<FormData>,
+    pool: web::Data<PgPool>,
+    email_client: web::Data<EmailClient>,
+    base_url: web::Data<ApplicationBaseUrl>,
+    template_engine: web::Data<EmailTemplateEngine>,  // NEW
+) -> HttpResponse { … }
+```
+
+Update `send_confirmation_email()` to render via the engine:
+
+```rust
+// Before
+let html_body = format!("Welcome to our newsletter!<br />Click <a href=\"{}\">here</a>…", …);
+
+// After
+let html_body = match template_engine.render_confirmation_email(
+    new_subscriber.name.as_ref(),
+    &confirmation_link,
+) {
+    Ok(body) => body,
+    Err(e) => {
+        tracing::error!("Failed to render confirmation email template: {:?}", e);
+        return Err(/* map to reqwest::Error or propagate as a new error type */);
+    }
+};
+```
+
+Because `send_confirmation_email` currently returns `Result<(), reqwest::Error>`, the function signature must be widened to accommodate template errors. Two approaches:
+
+- **Option A (preferred):** Change the return type to `Result<(), anyhow::Error>` (add `anyhow` to dependencies) and map both `tera::Error` and `reqwest::Error` with `?`.
+- **Option B:** Render the template in the `subscribe()` handler body before calling `send_confirmation_email()`, keeping the function signature unchanged.
+
+Apply the same change to `send_reminder_email()`.
+
+#### 7. Propagate Template Errors as 500
+
+Wherever a `render_*` call returns `Err`, log the error and return `HttpResponse::InternalServerError().finish()`. Template rendering errors are server-side bugs (misconfigured template path or bad template syntax) and should never reach the client as a 500 in production — the startup-time `expect()` in `Application::build()` ensures templates parse correctly before the server accepts traffic.
+
+---
+
+### Error Handling Strategy
+
+| Failure Point                      | When It Happens          | How It Is Handled                               |
+| ---------------------------------- | ------------------------ | ----------------------------------------------- |
+| Template directory not found       | Server startup           | `expect()` — process exits with a clear message |
+| Template syntax error              | Server startup           | `expect()` — process exits with a clear message |
+| Missing context variable           | Request time (rendering) | `tera` returns `Err`; handler returns 500       |
+| Template found, rendered correctly | Request time             | `Ok(String)` — passed directly to `EmailClient` |
+
+The startup-time guard (`expect()` on `EmailTemplateEngine::new()`) means that in practice a missing-variable error at request time indicates a programmer error (a new field was added to the template but not to the context). This is caught in tests before reaching production.
+
+---
+
+### Test Cases
+
+#### Unit Tests — `src/email_client/templates.rs` (`#[cfg(test)]`)
+
+These tests call `render_*` directly without spinning up the HTTP server. They require the `templates/` directory to be present relative to the workspace root (which it always is when running `cargo test`).
+
+| #   | Test Name                                                   | Scenario                                                | Expected                                                                         |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 1   | `confirmation_email_contains_subscriber_name`               | Render with `name = "Alice"`                            | Output HTML contains the string `"Alice"`                                        |
+| 2   | `confirmation_email_contains_confirmation_link_as_href`     | Render with a known `confirmation_link`                 | Output HTML contains `href="<link>"` (button CTA)                                |
+| 3   | `confirmation_email_contains_raw_link_as_visible_text`      | Render with a known `confirmation_link`                 | Output HTML contains the raw URL string rendered as visible text (not just href) |
+| 4   | `confirmation_email_raw_link_and_button_link_are_identical` | Render with a known link                                | The link appears at least twice in the output (button + fallback text)           |
+| 5   | `already_subscribed_email_contains_subscriber_name`         | Render with `name = "Bob"`                              | Output HTML contains the string `"Bob"`                                          |
+| 6   | `already_subscribed_email_does_not_contain_a_link`          | Render with `name = "Bob"`                              | Output HTML contains no `href` pointing to `/subscriptions/confirm`              |
+| 7   | `unknown_template_name_returns_error`                       | Call `self.0.render("nonexistent.html", &ctx)` directly | Returns `Err`                                                                    |
+
+#### Integration Tests — `tests/api/subscriptions.rs`
+
+| #   | Test Name                                                          | Description                                                            | Expected                                                                      |
+| --- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 8   | `confirmation_email_body_contains_confirmation_link`               | Subscribe, inspect the email captured by the mock server               | Email body contains the full confirmation URL                                 |
+| 9   | `confirmation_email_body_contains_raw_link_text`                   | Subscribe, inspect the email captured by the mock server               | Email body contains the URL as plain visible text (raw-link fallback section) |
+| 10  | `confirmation_email_body_contains_subscriber_name`                 | Subscribe as "Carol", inspect captured email                           | Email body contains "Carol"                                                   |
+| 11  | `already_subscribed_email_body_contains_subscriber_name`           | Subscribe, confirm, subscribe again; inspect the second captured email | Second email body contains the subscriber's name                              |
+| 12  | `already_subscribed_email_body_does_not_contain_confirmation_link` | Subscribe, confirm, subscribe again; inspect second email              | Second email body does not contain a `/subscriptions/confirm` URL             |
+
+---
+
+### Files to Change
+
+| File                                       | Change                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `Cargo.toml`                               | Add `tera = "1"`                                                                                                                     |
+| `templates/emails/confirmation.html`       | **New file.** Full HTML confirmation email template with `{{ name }}` and `{{ confirmation_link }}`                                  |
+| `templates/emails/already_subscribed.html` | **New file.** Full HTML already-subscribed email template with `{{ name }}`                                                          |
+| `src/email_client/templates.rs`            | **New file.** `EmailTemplateEngine` newtype, `new()`, `render_confirmation_email()`, `render_already_subscribed_email()`, unit tests |
+| `src/email_client/mod.rs`                  | Add `pub mod templates;` and `pub use templates::EmailTemplateEngine;`                                                               |
+| `src/configuration.rs`                     | Add `templates_dir: String` to `ApplicationSettings`                                                                                 |
+| `configuration/base.yaml`                  | Add `application.templates_dir: "templates"`                                                                                         |
+| `configuration/production.yaml`            | Add `application.templates_dir: "/app/templates"` (or Docker-appropriate absolute path)                                              |
+| `src/startup.rs`                           | Construct `EmailTemplateEngine`, pass it to `run()`, register as `app_data`                                                          |
+| `src/routes/subscriptions.rs`              | Accept `web::Data<EmailTemplateEngine>`, use it in `send_confirmation_email()` and `send_reminder_email()`                           |
+| `tests/api/subscriptions.rs`               | Add integration tests #8–12                                                                                                          |
+
+---
+
+### Open Questions
+
+1. **Compile-time embedding vs. runtime loading?**
+   Proposed default: **Runtime loading** (default `templates_dir` in config). This allows hot-editing templates during development without recompiling. For production, the `templates/` directory is copied into the Docker image alongside the binary (see `Dockerfile`). An alternative is to embed templates at compile time using `include_str!` and `Tera::default()` + `add_raw_template()`, which produces a single self-contained binary. This can be revisited when the binary is deployed to environments without a writable filesystem.
+
+2. **Error type for `send_confirmation_email()` and `send_reminder_email()`?**
+   Proposed default: **`anyhow::Error`**. Both functions already live in the application layer (not the domain). Using `anyhow::Error` avoids a bespoke error enum for what are operationally two distinct failure modes (render failure vs. HTTP send failure), and `anyhow` is already a common dependency in Zero2Prod-style projects. If the project later adopts `thiserror` for structured errors, these can be migrated then.
+
+3. **Should a plain-text (`text/plain`) version of each email be generated and sent as a multipart message?**
+   Proposed default: **No** — out of scope for this feature. The raw-link fallback in the HTML template handles the most common case (link-stripping clients). True multipart `text/html` + `text/plain` requires changes to `EmailBody` and the `EmailClient` API. It can be a separate feature.
+
+4. **Should templates be validated for required variables at startup (not just parsed)?**
+   Proposed default: **No** — Tera validates only syntax at parse time, not whether required variables are present. Variable presence is validated by the unit tests (#1–7 above). Adding a startup-time variable check would require rendering each template with dummy data, which is fragile. Tests are the right safety net here.
+
+5. **Should the `Dockerfile` copy the `templates/` directory into the image?**
+   Proposed default: **Yes** — a new `COPY templates/ /app/templates/` instruction must be added to `Dockerfile`, and `production.yaml` must set `application.templates_dir = "/app/templates"`. This is a deployment concern that is part of this feature.
 
 ---
