@@ -1197,3 +1197,7 @@ These tests call `render_*` directly without spinning up the HTTP server. They r
    Proposed default: **Yes** — a new `COPY templates/ /app/templates/` instruction must be added to `Dockerfile`, and `production.yaml` must set `application.templates_dir = "/app/templates"`. This is a deployment concern that is part of this feature.
 
 ---
+
+### Feature 4 - Finished on 2026-03-08
+
+---

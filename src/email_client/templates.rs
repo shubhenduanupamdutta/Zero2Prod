@@ -96,7 +96,9 @@ mod tests {
     #[test]
     fn unknown_template_returns_error() {
         let engine = EmailTemplateEngine::new("templates").unwrap();
-        let result = engine.0.render("non_existent_template.html", &Context::new());
+        let result = engine
+            .0
+            .render("non_existent_template.html", &Context::new());
         assert_err!(result);
     }
 }
