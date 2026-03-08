@@ -527,3 +527,261 @@ GET /subscriptions/confirm?subscription_token=...
 ### Feature 2 - Finished on 2026-03-07
 
 ---
+
+## Feature 3: `SubscriptionToken` Domain Type & Pre-Query Validation
+
+---
+
+### Problem Statement
+
+The confirmation endpoint (`GET /subscriptions/confirm?subscription_token=...`) accepts `subscription_token` as a plain `String` inside the `Parameters` struct. This means **every incoming request**, no matter how obviously malformed the token is, reaches the handler body and issues a database query before being rejected.
+
+This has several drawbacks:
+
+1. **No type-level invariant** — the rest of the codebase has no guarantee that a token it receives is structurally valid. A 1-character token and a SQL injection attempt are equally representable as `String`.
+2. **Unnecessary database load** — garbage inputs (wrong length, non-ASCII characters, special characters) cause a `SELECT` against `subscription_tokens` that will always return `None`. The database does work it never needed to do.
+3. **Inconsistency with the rest of the domain** — `SubscriberName` and `SubscriberEmail` are validated newtype wrappers. Their `parse()` method enforces invariants before any handler logic runs. `subscription_token` has no equivalent protection.
+4. **Reliance on sqlx as the sole defence** — sqlx parameterised queries protect against SQL injection, but defence in depth recommends rejecting obviously invalid inputs at the earliest possible layer, not the deepest one.
+
+---
+
+### Current State (What We Have)
+
+| Component                                 | Details                                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- | --- | -------------------------------------------------------------------------------------------------------- |
+| **`Parameters` struct**                   | `{ subscription_token: String }` — raw, unvalidated                                          |
+| **Token generation** (`subscriptions.rs`) | `std::iter::repeat_with(                                                                     |     | rng.sample(Alphanumeric)).map(char::from).take(25).collect()` — exactly 25 ASCII alphanumeric characters |
+| **Domain types**                          | `SubscriberName`, `SubscriberEmail` — newtype wrappers with `parse()` + custom `Deserialize` |
+| **`domain/mod.rs`**                       | Exports `NewSubscriber`, `SubscriberEmail`, `SubscriberName`                                 |
+| **First rejection point**                 | `get_token_row()` → `fetch_optional` → `Ok(None)` → `401 Unauthorized`                       |
+
+The problem is that rejection only happens at step 3 of the handler, after a round-trip to the database.
+
+---
+
+### Desired Behavior
+
+When a request arrives at `GET /subscriptions/confirm?subscription_token=<value>`:
+
+#### Case 1: Token is malformed (wrong length, non-alphanumeric, unicode, whitespace, null bytes, etc.)
+
+1. Rejected **during query-string deserialization**, before the handler body is entered.
+2. actix-web returns **400 Bad Request** automatically.
+3. **No database query is issued.**
+
+#### Case 2: Token is well-formatted but does not exist in the database
+
+1. Passes deserialization (token is structurally valid).
+2. Handler queries the database, finds nothing, returns **401 Unauthorized**.
+3. Behaviour unchanged from today.
+
+#### Case 3: Token is well-formatted and exists in the database
+
+1. Passes deserialization.
+2. Handler proceeds through the existing consumed/expiry/confirmation logic unchanged.
+
+---
+
+### What "well-formatted" means
+
+The token generator in `subscriptions.rs` produces exactly **25 ASCII alphanumeric characters** (`[A-Za-z0-9]`). A `SubscriptionToken` is valid if and only if:
+
+- Its byte length is exactly **25**.
+- Every character is ASCII alphanumeric (`char::is_ascii_alphanumeric()`).
+
+These two checks reject:
+
+- Tokens that are too short or too long (wrong length).
+- Tokens containing spaces, hyphens, underscores, or punctuation.
+- Tokens containing SQL meta-characters (`'`, `;`, `--`, `%`, etc.).
+- Tokens containing Unicode characters, including homoglyphs (e.g., Cyrillic `а` instead of Latin `a`).
+- Tokens containing null bytes or control characters.
+- Empty strings.
+
+Because `char::is_ascii_alphanumeric()` accepts only bytes `[0-9A-Za-z]`, all of the above classes are implicitly rejected by a single predicate.
+
+---
+
+### Implementation Plan
+
+#### 1. Create `src/domain/subscription_token.rs`
+
+Define a newtype struct with a private inner `String`:
+
+```rust
+pub struct SubscriptionToken(String);
+```
+
+Implement a `parse()` associated function that enforces the two invariants:
+
+```rust
+impl SubscriptionToken {
+    const TOKEN_LENGTH: usize = 25;
+
+    pub fn parse(raw: String) -> Result<SubscriptionToken, String> {
+        // check 1: exact length
+        // check 2: all ASCII alphanumeric
+        // return Ok(Self(raw)) or Err(descriptive message)
+    }
+}
+```
+
+Implement `AsRef<str>` so the inner value can be passed to sqlx queries as `token.as_ref()` without breaking encapsulation:
+
+```rust
+impl AsRef<str> for SubscriptionToken {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+```
+
+Implement a **custom `Deserialize`** (do not `#[derive(Deserialize)]`) that calls `parse()` and maps the error with `serde::de::Error::custom`. This is the same pattern used by `SubscriberName` and `SubscriberEmail`. When actix-web's `web::Query<Parameters>` fails to deserialize the query string, it returns 400 automatically — no handler code required:
+
+```rust
+impl<'de> Deserialize<'de> for SubscriptionToken {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        SubscriptionToken::parse(raw).map_err(serde::de::Error::custom)
+    }
+}
+```
+
+#### 2. Export from `src/domain/mod.rs`
+
+Add a module declaration and re-export alongside the existing domain types:
+
+```rust
+mod subscription_token;
+pub use subscription_token::SubscriptionToken;
+```
+
+#### 3. Use `SubscriptionToken` in `subscriptions_confirm.rs`
+
+Change the `Parameters` struct from:
+
+```rust
+#[derive(Deserialize)]
+pub struct Parameters {
+    subscription_token: String,
+}
+```
+
+to:
+
+```rust
+#[derive(serde::Deserialize)]
+pub struct Parameters {
+    subscription_token: SubscriptionToken,
+}
+```
+
+Add the import:
+
+```rust
+use crate::domain::SubscriptionToken;
+```
+
+Everywhere `parameters.subscription_token` is passed to a function expecting `&str`, use `.as_ref()`:
+
+```rust
+// before
+get_token_row(&pool, &parameters.subscription_token)
+mark_token_as_consumed(&pool, &parameters.subscription_token)
+
+// after
+get_token_row(&pool, parameters.subscription_token.as_ref())
+mark_token_as_consumed(&pool, parameters.subscription_token.as_ref())
+```
+
+No other logic in the handler needs to change.
+
+---
+
+### How the Validation Layer Fits Into the Request Lifecycle
+
+```
+GET /subscriptions/confirm?subscription_token=<value>
+        │
+        ▼
+actix-web query string extractor
+web::Query<Parameters>::from_query(...)
+        │
+        ├─ Calls serde::Deserialize for each field
+        │
+        ├─ SubscriptionToken::deserialize(...)
+        │       └─ SubscriptionToken::parse(raw)
+        │               ├─ length != 25         ──► Err → serde::de::Error::custom
+        │               └─ non-ASCII-alnum char ──► Err → serde::de::Error::custom
+        │
+        ├─ [Deserialisation failed] ──────────────────► 400 Bad Request (actix-web automatic)
+        │                                                (no handler code runs, no DB query)
+        │
+        └─ [Deserialisation succeeded]
+                │
+                ▼
+            confirm() handler body
+                │
+                ├─ get_token_row() → None  ──► 401 Unauthorized
+                └─ get_token_row() → Some  ──► consumed / expiry / confirmation logic
+```
+
+---
+
+### Test Cases
+
+All tests belong in `src/domain/subscription_token.rs` under `#[cfg(test)]`, following the same pattern as `SubscriberName` tests.
+
+| #   | Test Name                                          | Input                                    | Expected |
+| --- | -------------------------------------------------- | ---------------------------------------- | -------- |
+| 1   | `a_valid_25_char_alphanumeric_token_is_accepted`   | `"abcdefghijklmnopqrstuvwxy"` (25 chars) | `Ok`     |
+| 2   | `a_token_with_24_chars_is_rejected`                | 24 char string                           | `Err`    |
+| 3   | `a_token_with_26_chars_is_rejected`                | 26 char string                           | `Err`    |
+| 4   | `an_empty_token_is_rejected`                       | `""`                                     | `Err`    |
+| 5   | `a_token_with_spaces_is_rejected`                  | 25 chars including a space               | `Err`    |
+| 6   | `a_token_with_a_hyphen_is_rejected`                | 25 chars including `-`                   | `Err`    |
+| 7   | `a_token_with_special_characters_is_rejected`      | SQL injection attempt string             | `Err`    |
+| 8   | `a_token_with_unicode_chars_is_rejected`           | 25 chars including a Cyrillic homoglyph  | `Err`    |
+| 9   | `a_token_with_a_null_byte_is_rejected`             | 25 chars including `\x00`                | `Err`    |
+| 10  | `uppercase_and_lowercase_and_digits_are_all_valid` | Mix of `A-Z`, `a-z`, `0-9`, exactly 25   | `Ok`     |
+
+Use the `claims` crate (`assert_ok!`, `assert_err!`) for assertions, consistent with existing domain tests.
+
+---
+
+### Security Considerations
+
+- **Defence in depth:** sqlx parameterised queries already prevent SQL injection. This type adds a second, earlier rejection layer that is independent of the database driver. Neither layer should be removed in favour of the other.
+- **Reduced attack surface for database probing:** Without this type, an attacker can send arbitrarily large or complex strings and cause a database round-trip for each one. With this type, only structurally valid tokens ever reach the database.
+- **No information leakage:** A 400 on malformed tokens does not reveal whether a valid token exists. A structurally valid-but-nonexistent token still receives a 401, same as before. An attacker learns nothing new from the 400 — they only learn the expected format, which is already implied by a 25-character link in an email.
+- **Consistent domain model:** Making token validation explicit in a domain type ensures future code paths that accept a token (e.g., an admin revocation endpoint) receive the same invariant guarantees without needing to re-implement the checks.
+
+---
+
+### Files to Change
+
+| File                                  | Change                                                                                                    |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `src/domain/subscription_token.rs`    | **New file.** `SubscriptionToken` newtype, `parse()`, `AsRef<str>`, custom `Deserialize`, tests           |
+| `src/domain/mod.rs`                   | Add `mod subscription_token;` and `pub use subscription_token::SubscriptionToken;`                        |
+| `src/routes/subscriptions_confirm.rs` | Import `SubscriptionToken`, change `Parameters.subscription_token` field type, add `.as_ref()` call sites |
+
+No migrations, no configuration changes, no changes to `subscriptions.rs`.
+
+---
+
+### Open Questions
+
+1. **Should `SubscriptionToken` also derive `Serialize`?**
+   Proposed default: **No** — tokens are never serialised into a response body in this codebase. Deriving `Serialize` would be dead code and could accidentally expose the raw token in a future response if a struct containing it were serialised carelessly.
+
+2. **Should the constant `TOKEN_LENGTH = 25` be shared with `generate_subscription_token()` in `subscriptions.rs`?**
+   Proposed default: **Yes, eventually.** Currently both the generator (25 characters) and the validator (`TOKEN_LENGTH = 25`) hard-code the same value independently. A future refactor could define a single constant in the domain type and import it in the generator, making a length change automatically update both sides. For now, keeping them co-located with their respective concerns is acceptable.
+
+3. **Should the 400 response include an error body explaining the format requirement?**
+   Proposed default: **No.** actix-web returns a bare 400 when `web::Query` extraction fails. Customising the error response would require an extractor wrapper or a custom error handler. The added complexity is not justified — the token comes from a link in a confirmation email, not from a user-facing form. A human who sees a 400 here has most likely tampered with the URL.
+
+---
