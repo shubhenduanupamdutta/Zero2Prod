@@ -4,7 +4,7 @@ pub struct EmailTemplateEngine(Tera);
 
 impl EmailTemplateEngine {
     pub fn new(templates_dir: &str) -> Result<Self, TeraError> {
-        let glob = format!("{}/**/*", templates_dir);
+        let glob = format!("{}/emails/**/*", templates_dir);
         let mut tera = Tera::new(&glob)?;
         tera.autoescape_on(vec![".html"]);
         Ok(Self(tera))
