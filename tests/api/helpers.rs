@@ -69,13 +69,28 @@ impl TestApp {
     pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationLinks {
         let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
 
-        // Extract the link from one of the request fields
+        // Extract the link from one of the request fields.
+        // Rich HTML templates repeat the confirmation URL (button href, raw-link
+        // fallback href, visible text), so we allow >= 1 links but require that
+        // every distinct URL found points to the same target.
         let get_link = |s: &str| {
             let links: Vec<_> = linkify::LinkFinder::new()
                 .links(s)
                 .filter(|l| *l.kind() == linkify::LinkKind::Url)
                 .collect();
-            assert_eq!(links.len(), 1);
+            assert!(
+                !links.is_empty(),
+                "Expected at least one confirmation link in the email body"
+            );
+            // Deduplicate: all links must be the same URL.
+            let unique: std::collections::HashSet<&str> =
+                links.iter().map(|l| l.as_str()).collect();
+            assert_eq!(
+                unique.len(),
+                1,
+                "Expected all links in the email body to be identical, found: {:?}",
+                unique
+            );
             let raw_link = links[0].as_str().to_owned();
             let mut confirmation_link = reqwest::Url::parse(&raw_link).unwrap();
             // Let's make sure we don't call random API on the web
