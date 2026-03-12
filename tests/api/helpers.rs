@@ -1,14 +1,14 @@
 use std::sync::LazyLock;
 
 use chrono::Utc;
-use rand::{distr::Alphanumeric, rng, Rng};
+use rand::{Rng, distr::Alphanumeric, rng};
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::{
-    configuration::{get_configuration, DatabaseSettings},
-    startup::{get_connection_pool, Application},
+    configuration::{DatabaseSettings, get_configuration},
+    startup::{Application, get_connection_pool},
     telemetry::{get_subscriber, init_subscriber},
 };
 

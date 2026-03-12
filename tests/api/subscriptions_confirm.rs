@@ -1,10 +1,10 @@
-use crate::helpers::{generate_token, spawn_app, ConfirmationLinks};
+use crate::helpers::{ConfirmationLinks, generate_token, spawn_app};
 use chrono::{Duration, SubsecRound, Utc};
 use reqwest::StatusCode;
 use serde_json::Value;
 use wiremock::{
-    matchers::{method, path},
     Mock, ResponseTemplate,
+    matchers::{method, path},
 };
 
 #[tokio::test]

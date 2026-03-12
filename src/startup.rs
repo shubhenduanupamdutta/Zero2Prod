@@ -4,8 +4,8 @@ use crate::{
     email_client::{EmailClient, EmailTemplateEngine},
     routes::{confirm, health_check, subscribe},
 };
-use actix_web::{dev::Server, web, App, HttpServer};
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use actix_web::{App, HttpServer, dev::Server, web};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
 
