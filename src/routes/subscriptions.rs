@@ -12,7 +12,6 @@ use chrono::Utc;
 use rand::{Rng, distr::Alphanumeric, rng};
 use serde::Deserialize;
 use sqlx::{Executor, PgPool, Postgres, Transaction};
-use tracing::error;
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -34,17 +33,6 @@ impl TryFrom<FormData> for NewSubscriber {
     }
 }
 
-pub struct StoreTokenError(sqlx::Error);
-
-impl fmt::Display for StoreTokenError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "A database error was encountered while trying to store a subscription token."
-        )
-    }
-}
-
 fn error_chain_fmt(e: &impl error::Error, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     writeln!(f, "{}", e)?;
     let mut current = e.source();
@@ -53,19 +41,6 @@ fn error_chain_fmt(e: &impl error::Error, f: &mut fmt::Formatter<'_>) -> fmt::Re
         current = cause.source();
     }
     Ok(())
-}
-
-impl fmt::Debug for StoreTokenError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-impl error::Error for StoreTokenError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        // The compiler thransparently casts `&sqlx::Error` into a `&dyn Error`.
-        Some(&self.0)
-    }
 }
 
 #[derive(thiserror::Error)]
@@ -162,7 +137,7 @@ async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
-) -> Result<(), StoreTokenError> {
+) -> Result<(), sqlx::Error> {
     let query = sqlx::query!(
         r#"
         INSERT INTO subscription_tokens (subscription_token, subscriber_id)
@@ -170,10 +145,7 @@ async fn store_token(
         subscription_token,
         subscriber_id
     );
-    transaction.execute(query).await.map_err(|e| {
-        error!("Failed to execute query: {:?}", e);
-        StoreTokenError(e)
-    })?;
+    transaction.execute(query).await?;
     Ok(())
 }
 
@@ -239,11 +211,8 @@ async fn insert_subscriber(
         Utc::now()
     )
     .fetch_one(transaction.as_mut())
-    .await
-    .map_err(|e| {
-        error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
+    // Removing error logging since propagating error with `?` will automatically log it
 
     Ok((result.id, result.status))
 }
