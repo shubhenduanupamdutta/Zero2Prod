@@ -1,4 +1,7 @@
-use actix_web::{HttpResponse, web};
+use std::fmt;
+
+use actix_web::http::StatusCode;
+use actix_web::{HttpResponse, ResponseError, web};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -6,6 +9,7 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::domain::SubscriptionToken;
+use crate::utils::error_chain_fmt;
 
 #[derive(Deserialize)]
 pub struct Parameters {
@@ -23,6 +27,29 @@ struct ConfirmationResponse {
     status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<String>,
+}
+
+#[derive(thiserror::Error)]
+pub enum ConfirmationError {
+    #[error("An unexpected error occurred.")]
+    InternalError,
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+impl fmt::Debug for ConfirmationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl ResponseError for ConfirmationError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            ConfirmationError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
+            ConfirmationError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
 }
 
 #[tracing::instrument(name = "Confirm a pending subscriber", skip(parameters, pool))]
@@ -107,11 +134,7 @@ pub async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<bo
         subscriber_id
     )
     .fetch_one(pool)
-    .await
-    .map_err(|e| {
-        error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
     Ok(record.was_already_confirmed)
 }
 
@@ -132,10 +155,6 @@ async fn get_token_row(
     )
     .fetch_optional(pool)
     .await
-    .map_err(|e| {
-        error!("Failed to execute query: {:?}", e);
-        e
-    })
 }
 
 #[tracing::instrument(
@@ -152,10 +171,6 @@ pub async fn is_any_token_consumed(
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| {
-        error!("Failed to execute query: {:?}", e);
-        e
-    })
     .map(|rows| rows.into_iter().any(|r| r.consumed_at.is_some()))
 }
 
@@ -170,10 +185,6 @@ pub async fn mark_token_as_consumed(
         subscription_token.as_ref()
     )
     .execute(pool)
-    .await
-    .map_err(|e| {
-        error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
     Ok(())
 }
