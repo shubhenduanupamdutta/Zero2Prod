@@ -1,13 +1,6 @@
-use std::{error, fmt};
+use std::fmt;
 
-use crate::utils::error_chain_fmt;
-use crate::{
-    domain::{NewSubscriber, SubscriberEmail, SubscriberName},
-    email_client::{EmailClient, EmailTemplateEngine},
-    startup::ApplicationBaseUrl,
-};
-use actix_web::http::StatusCode;
-use actix_web::{HttpResponse, ResponseError, web};
+use actix_web::{HttpResponse, ResponseError, http::StatusCode, web};
 use anyhow::Context as _;
 use chrono::Utc;
 use rand::{Rng, distr::Alphanumeric, rng};
@@ -15,9 +8,16 @@ use serde::Deserialize;
 use sqlx::{Executor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::{
+    domain::{NewSubscriber, SubscriberEmail, SubscriberName},
+    email_client::{EmailClient, EmailTemplateEngine},
+    startup::ApplicationBaseUrl,
+    utils::error_chain_fmt,
+};
+
 #[derive(Deserialize)]
 pub struct FormData {
-    name: String,
+    name:  String,
     email: String,
 }
 
@@ -165,7 +165,8 @@ pub async fn send_confirmation_email(
         .render_confirmation_email(new_subscriber.name.as_ref(), &confirmation_link)
         .unwrap_or_else(|_| {
             format!(
-                "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
+                "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your \
+                 subscription.",
                 confirmation_link
             )
         });

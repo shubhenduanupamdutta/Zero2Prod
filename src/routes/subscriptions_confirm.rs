@@ -1,15 +1,13 @@
 use std::fmt;
 
-use actix_web::http::StatusCode;
-use actix_web::{HttpResponse, ResponseError, web};
+use actix_web::{HttpResponse, ResponseError, http::StatusCode, web};
+use anyhow::Context as _;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use tracing::error;
 use uuid::Uuid;
 
-use crate::domain::SubscriptionToken;
-use crate::utils::error_chain_fmt;
+use crate::{domain::SubscriptionToken, utils::error_chain_fmt};
 
 #[derive(Deserialize)]
 pub struct Parameters {
@@ -18,21 +16,19 @@ pub struct Parameters {
 
 struct TokenRow {
     subscriber_id: Uuid,
-    created_at: DateTime<Utc>,
-    consumed_at: Option<DateTime<Utc>>,
+    created_at:    DateTime<Utc>,
+    consumed_at:   Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize)]
 struct ConfirmationResponse {
-    status: String,
+    status:  String,
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<String>,
 }
 
 #[derive(thiserror::Error)]
 pub enum ConfirmationError {
-    #[error("An unexpected error occurred.")]
-    InternalError,
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
 }
@@ -46,7 +42,6 @@ impl fmt::Debug for ConfirmationError {
 impl ResponseError for ConfirmationError {
     fn status_code(&self) -> StatusCode {
         match self {
-            ConfirmationError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
             ConfirmationError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -57,65 +52,58 @@ pub async fn confirm(
     parameters: web::Query<Parameters>,
     pool: web::Data<PgPool>,
     expiry_seconds: web::Data<u32>,
-) -> HttpResponse {
-    let record = match get_token_row(&pool, &parameters.subscription_token).await {
-        Ok(record) => record,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
+) -> Result<HttpResponse, ConfirmationError> {
+    let record = get_token_row(&pool, &parameters.subscription_token)
+        .await
+        .context("Failed to get subscription token row from database.")?;
 
     let row = match record {
-        None => return HttpResponse::Unauthorized().finish(),
+        None => return Ok(HttpResponse::Unauthorized().finish()),
         Some(row) => row,
     };
 
     if row.consumed_at.is_some() {
-        return HttpResponse::Ok().json(ConfirmationResponse {
-            status: "already_confirmed".to_string(),
+        return Ok(HttpResponse::Ok().json(ConfirmationResponse {
+            status:  "already_confirmed".to_string(),
             message: Some("This subscription has already been confirmed.".to_string()),
-        });
+        }));
     }
 
     if is_any_token_consumed(&pool, row.subscriber_id)
         .await
-        .unwrap_or(false)
+        .context("Failed to check if any token for subscriber is consumed")?
     {
-        if mark_token_as_consumed(&pool, &parameters.subscription_token)
+        mark_token_as_consumed(&pool, &parameters.subscription_token)
             .await
-            .is_err()
-        {
-            return HttpResponse::InternalServerError().finish();
-        }
-        return HttpResponse::Ok().json(ConfirmationResponse {
-            status: "already_confirmed".to_string(),
+            .context("Failed to mark token as consumed")?;
+
+        return Ok(HttpResponse::Ok().json(ConfirmationResponse {
+            status:  "already_confirmed".to_string(),
             message: Some("This subscription has already been confirmed.".to_string()),
-        });
+        }));
     }
 
     let now = Utc::now();
     if now - row.created_at > chrono::Duration::seconds(*expiry_seconds.into_inner() as i64) {
-        return HttpResponse::Unauthorized().finish();
+        return Ok(HttpResponse::Unauthorized().finish());
     };
 
-    let subscriber_was_confirmed = match confirm_subscriber(&pool, row.subscriber_id).await {
-        Ok(was_confirmed) => was_confirmed,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
+    let subscriber_was_confirmed = confirm_subscriber(&pool, row.subscriber_id)
+        .await
+        .context("Failed to mark subscriber as confirmed")?;
     if subscriber_was_confirmed {
-        return HttpResponse::Ok().json(ConfirmationResponse {
-            status: "already_confirmed".to_string(),
+        return Ok(HttpResponse::Ok().json(ConfirmationResponse {
+            status:  "already_confirmed".to_string(),
             message: Some("This subscription has already been confirmed.".to_string()),
-        });
+        }));
     } else {
-        if mark_token_as_consumed(&pool, &parameters.subscription_token)
+        mark_token_as_consumed(&pool, &parameters.subscription_token)
             .await
-            .is_err()
-        {
-            return HttpResponse::InternalServerError().finish();
-        }
-        return HttpResponse::Ok().json(ConfirmationResponse {
-            status: "confirmed".to_string(),
+            .context("Failed to mark token as consumed")?;
+        return Ok(HttpResponse::Ok().json(ConfirmationResponse {
+            status:  "confirmed".to_string(),
             message: None,
-        });
+        }));
     }
 }
 
@@ -186,5 +174,6 @@ pub async fn mark_token_as_consumed(
     )
     .execute(pool)
     .await?;
+    
     Ok(())
 }
