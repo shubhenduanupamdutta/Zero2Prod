@@ -37,6 +37,7 @@ sqlx = { version = "0.8.6", features = [
     "migrate",
 ] }
 tera = { version = "1.20.1", default-features = false }
+thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
 tracing = { version = "0.1.44", features = ["log"] }
 tracing-actix-web = "0.7.21"

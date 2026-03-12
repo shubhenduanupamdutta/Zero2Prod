@@ -4310,6 +4310,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tera",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
  "tracing-actix-web",
