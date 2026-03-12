@@ -1,5 +1,6 @@
-use crate::helpers::{generate_token, spawn_app};
 use chrono::{Duration, Utc};
+
+use crate::helpers::{generate_token, spawn_app};
 
 #[tokio::test]
 async fn expired_token_returns_unauthorized() {

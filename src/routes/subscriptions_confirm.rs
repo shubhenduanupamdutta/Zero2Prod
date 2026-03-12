@@ -16,13 +16,13 @@ pub struct Parameters {
 
 struct TokenRow {
     subscriber_id: Uuid,
-    created_at:    DateTime<Utc>,
-    consumed_at:   Option<DateTime<Utc>>,
+    created_at: DateTime<Utc>,
+    consumed_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize)]
 struct ConfirmationResponse {
-    status:  String,
+    status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<String>,
 }
@@ -64,7 +64,7 @@ pub async fn confirm(
 
     if row.consumed_at.is_some() {
         return Ok(HttpResponse::Ok().json(ConfirmationResponse {
-            status:  "already_confirmed".to_string(),
+            status: "already_confirmed".to_string(),
             message: Some("This subscription has already been confirmed.".to_string()),
         }));
     }
@@ -78,7 +78,7 @@ pub async fn confirm(
             .context("Failed to mark token as consumed")?;
 
         return Ok(HttpResponse::Ok().json(ConfirmationResponse {
-            status:  "already_confirmed".to_string(),
+            status: "already_confirmed".to_string(),
             message: Some("This subscription has already been confirmed.".to_string()),
         }));
     }
@@ -93,7 +93,7 @@ pub async fn confirm(
         .context("Failed to mark subscriber as confirmed")?;
     if subscriber_was_confirmed {
         return Ok(HttpResponse::Ok().json(ConfirmationResponse {
-            status:  "already_confirmed".to_string(),
+            status: "already_confirmed".to_string(),
             message: Some("This subscription has already been confirmed.".to_string()),
         }));
     } else {
@@ -101,7 +101,7 @@ pub async fn confirm(
             .await
             .context("Failed to mark token as consumed")?;
         return Ok(HttpResponse::Ok().json(ConfirmationResponse {
-            status:  "confirmed".to_string(),
+            status: "confirmed".to_string(),
             message: None,
         }));
     }
@@ -174,6 +174,6 @@ pub async fn mark_token_as_consumed(
     )
     .execute(pool)
     .await?;
-    
+
     Ok(())
 }

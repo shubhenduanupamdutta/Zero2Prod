@@ -33,8 +33,9 @@ impl EmailTemplateEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use claims::{assert_err, assert_ok};
+
+    use super::*;
 
     #[test]
     fn confirmation_email_contains_subscriber_name_and_link() {

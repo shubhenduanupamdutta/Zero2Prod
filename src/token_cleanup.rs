@@ -1,6 +1,7 @@
+use std::time::Duration as StdDuration;
+
 use chrono::Utc;
 use sqlx::PgPool;
-use std::time::Duration as StdDuration;
 
 /// Spawns a background tokio task that periodically deletes expired tokens.
 /// The task runs until the process exits and cannot be cancelled externally.

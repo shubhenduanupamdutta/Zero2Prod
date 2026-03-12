@@ -6,7 +6,8 @@ use crate::helpers::{generate_token, spawn_app};
 #[tokio::test]
 async fn delete_expired_token_removes_old_rows_and_keeps_recent_rows() {
     let app = spawn_app().await;
-    // Insert 2 token with more than 72 hour age (75, 89) and 2 tokens with less than 72 hour age (1, 71)
+    // Insert 2 token with more than 72 hour age (75, 89) and 2 tokens with less than 72 hour age
+    // (1, 71)
     let tokens: [String; 4] = std::array::from_fn(|_| generate_token());
     let now = Utc::now();
     let timings = [
@@ -68,7 +69,8 @@ async fn spawn_cleanup_task_does_not_panic_on_db_error() {
     tokio::time::sleep(Duration::seconds(5).to_std().unwrap()).await; // Wait for the app to be fully ready
     app.db_pool.close().await; // Close the DB pool to simulate a DB error in the cleanup task
     spawn_token_cleanup_task(app.db_pool.clone(), 1, 72);
-    // If the task panics, the test will fail. We just need to wait a bit to let the task attempt to run.
+    // If the task panics, the test will fail. We just need to wait a bit to let the task attempt to
+    // run.
     let response = reqwest::Client::new()
         .get(format!("{}/health_check", &app.address))
         .send()

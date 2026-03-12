@@ -17,7 +17,7 @@ use crate::{
 
 #[derive(Deserialize)]
 pub struct FormData {
-    name:  String,
+    name: String,
     email: String,
 }
 

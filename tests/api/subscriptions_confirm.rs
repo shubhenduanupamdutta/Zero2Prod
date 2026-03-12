@@ -1,4 +1,3 @@
-use crate::helpers::{ConfirmationLinks, generate_token, spawn_app};
 use chrono::{Duration, SubsecRound, Utc};
 use reqwest::StatusCode;
 use serde_json::Value;
@@ -6,6 +5,8 @@ use wiremock::{
     Mock, ResponseTemplate,
     matchers::{method, path},
 };
+
+use crate::helpers::{ConfirmationLinks, generate_token, spawn_app};
 
 #[tokio::test]
 async fn confirmations_without_token_are_rejected_with_a_400() {

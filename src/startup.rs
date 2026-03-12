@@ -1,13 +1,15 @@
-use crate::configuration::{DatabaseSettings, Settings};
-use crate::token_cleanup::spawn_token_cleanup_task;
-use crate::{
-    email_client::{EmailClient, EmailTemplateEngine},
-    routes::{confirm, health_check, subscribe},
-};
+use std::net::TcpListener;
+
 use actix_web::{App, HttpServer, dev::Server, web};
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
+
+use crate::{
+    configuration::{DatabaseSettings, Settings},
+    email_client::{EmailClient, EmailTemplateEngine},
+    routes::{confirm, health_check, subscribe},
+    token_cleanup::spawn_token_cleanup_task,
+};
 
 /// A new type to hold the newly built server and its port
 pub struct Application {

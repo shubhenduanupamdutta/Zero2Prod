@@ -11,10 +11,12 @@ impl SubscriberName {
         let is_empty_or_whitespace = name.trim().is_empty();
 
         // A grapheme is defined by the Unicode Standard as a user-perceived character.
-        // For example, the name "Beyoncé" consists of 7 graphemes, even though it has 8 Unicode code points (the "é" is represented as "e" followed by a combining acute accent).
+        // For example, the name "Beyoncé" consists of 7 graphemes, even though it has 8 Unicode
+        // code points (the "é" is represented as "e" followed by a combining acute accent).
         let is_too_long = name.graphemes(true).count() > 256;
 
-        // Checking for any of the forbidden characters: '/', '(', ')', '"', '<', '>', '\\', '{', '}'
+        // Checking for any of the forbidden characters: '/', '(', ')', '"', '<', '>', '\\', '{',
+        // '}'
         let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
         let contains_forbidden_characters = name.chars().any(|c| forbidden_characters.contains(&c));
 
@@ -35,8 +37,9 @@ impl AsRef<str> for SubscriberName {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use claims::{assert_err, assert_ok};
+
+    use super::*;
 
     #[test]
     fn a_256_grapheme_long_name_is_valid() {

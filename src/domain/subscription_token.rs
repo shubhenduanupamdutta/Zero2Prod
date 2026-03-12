@@ -37,8 +37,9 @@ impl<'de> Deserialize<'de> for SubscriptionToken {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use claims::{assert_err, assert_ok};
+
+    use super::*;
 
     #[test]
     fn a_valid_25_character_alphanumeric_token_is_parsed_successfully() {

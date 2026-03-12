@@ -1,5 +1,6 @@
-use crate::domain::{SubscriberEmail, SubscriberName};
 use reqwest::{Client, Url};
+
+use crate::domain::{SubscriberEmail, SubscriberName};
 pub mod email_body;
 pub mod templates;
 
@@ -70,14 +71,21 @@ impl EmailClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use claims::assert_err;
-    use fake::faker::internet::en::SafeEmail;
-    use fake::faker::lorem::en::{Paragraph, Sentence};
-    use fake::faker::name::en::Name;
-    use fake::{Fake, Faker};
-    use wiremock::matchers::{any, header, header_exists, method, path};
-    use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+    use fake::{
+        Fake, Faker,
+        faker::{
+            internet::en::SafeEmail,
+            lorem::en::{Paragraph, Sentence},
+            name::en::Name,
+        },
+    };
+    use wiremock::{
+        Mock, MockServer, Request, ResponseTemplate,
+        matchers::{any, header, header_exists, method, path},
+    };
+
+    use super::*;
 
     struct SendEmailBodyMatcher;
 
