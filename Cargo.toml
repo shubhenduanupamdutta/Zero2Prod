@@ -18,6 +18,7 @@ name = "zero2prod"
 
 [dependencies]
 actix-web = "4.12.1"
+anyhow = "1.0.102"
 chrono = { version = "0.4.43", default-features = false, features = [
     "serde",
     "clock",
