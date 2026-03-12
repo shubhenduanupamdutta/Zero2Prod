@@ -1,11 +1,13 @@
+use std::fmt;
+
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
     email_client::{EmailClient, EmailTemplateEngine},
     startup::ApplicationBaseUrl,
 };
-use actix_web::{web, HttpResponse};
+use actix_web::{HttpResponse, ResponseError, web};
 use chrono::Utc;
-use rand::{distr::Alphanumeric, rng, Rng};
+use rand::{Rng, distr::Alphanumeric, rng};
 use serde::Deserialize;
 use sqlx::{Executor, PgPool, Postgres, Transaction};
 use tracing::error;
@@ -30,6 +32,20 @@ impl TryFrom<FormData> for NewSubscriber {
     }
 }
 
+#[derive(Debug)]
+pub struct StoreTokenError(sqlx::Error);
+
+impl ResponseError for StoreTokenError {}
+
+impl fmt::Display for StoreTokenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "A database error was encountered while trying to store a subscription token."
+        )
+    }
+}
+
 /// Generate a random 25-character-long case sensitive subscription token
 fn generate_subscription_token() -> String {
     let mut rng = rng();
@@ -50,45 +66,40 @@ pub async fn subscribe(
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
     template_engine: web::Data<EmailTemplateEngine>,
-) -> HttpResponse {
+) -> Result<HttpResponse, actix_web::Error> {
     let new_subscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber,
-        Err(_) => return HttpResponse::BadRequest().finish(),
+        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
     };
 
     let mut transaction = match pool.begin().await {
         Ok(transaction) => transaction,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
     let (subscriber_id, status) = match insert_subscriber(&mut transaction, &new_subscriber).await {
         Ok((id, status)) => (id, status),
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
     if status == "confirmed" {
         if transaction.commit().await.is_err() {
-            return HttpResponse::InternalServerError().finish();
+            return Ok(HttpResponse::InternalServerError().finish());
         }
         if send_reminder_email(&email_client, new_subscriber, &template_engine)
             .await
             .is_err()
         {
-            return HttpResponse::InternalServerError().finish();
+            return Ok(HttpResponse::InternalServerError().finish());
         }
-        return HttpResponse::Ok().finish();
+        return Ok(HttpResponse::Ok().finish());
     };
 
     let subscription_token = generate_subscription_token();
-    if store_token(&mut transaction, subscriber_id, &subscription_token)
-        .await
-        .is_err()
-    {
-        return HttpResponse::InternalServerError().finish();
-    }
+    store_token(&mut transaction, subscriber_id, &subscription_token).await?;
 
     if transaction.commit().await.is_err() {
-        return HttpResponse::InternalServerError().finish();
+        return Ok(HttpResponse::InternalServerError().finish());
     }
 
     if send_confirmation_email(
@@ -101,9 +112,9 @@ pub async fn subscribe(
     .await
     .is_err()
     {
-        return HttpResponse::InternalServerError().finish();
+        return Ok(HttpResponse::InternalServerError().finish());
     }
-    HttpResponse::Ok().finish()
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(
@@ -114,7 +125,7 @@ async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), StoreTokenError> {
     let query = sqlx::query!(
         r#"
         INSERT INTO subscription_tokens (subscription_token, subscriber_id)
@@ -124,7 +135,7 @@ async fn store_token(
     );
     transaction.execute(query).await.map_err(|e| {
         error!("Failed to execute query: {:?}", e);
-        e
+        StoreTokenError(e)
     })?;
     Ok(())
 }
