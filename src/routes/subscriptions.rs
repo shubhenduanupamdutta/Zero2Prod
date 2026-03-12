@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{error, fmt};
 
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
@@ -32,7 +32,6 @@ impl TryFrom<FormData> for NewSubscriber {
     }
 }
 
-#[derive(Debug)]
 pub struct StoreTokenError(sqlx::Error);
 
 impl ResponseError for StoreTokenError {}
@@ -43,6 +42,32 @@ impl fmt::Display for StoreTokenError {
             f,
             "A database error was encountered while trying to store a subscription token."
         )
+    }
+}
+
+fn error_chain_fmt(
+    e: &impl error::Error,
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    writeln!(f, "{}", e)?;
+    let mut current = e.source();
+    while let Some(cause) = current {
+        writeln!(f, "\nCaused by:\n\t{}", cause)?;
+        current = cause.source();
+    }
+    Ok(())
+}
+
+impl fmt::Debug for StoreTokenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl error::Error for StoreTokenError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        // The compiler thransparently casts `&sqlx::Error` into a `&dyn Error`.
+        Some(&self.0)
     }
 }
 
