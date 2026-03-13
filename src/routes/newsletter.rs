@@ -89,6 +89,6 @@ async fn get_confirmed_subscribers(
     .into_iter()
     .map(|row| NewSubscriber::parse(row.name, row.email))
     .collect();
-    
+
     Ok(confirmed_subscribers)
 }

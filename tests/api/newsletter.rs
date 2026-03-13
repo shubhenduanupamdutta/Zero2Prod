@@ -1,7 +1,6 @@
 use serde_json::json;
 use wiremock::{
-    Mock,
-    ResponseTemplate,
+    Mock, ResponseTemplate,
     matchers::{any, method, path},
 };
 
@@ -96,7 +95,6 @@ async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
     app.get_confirmation_links(email_request)
 }
 
-
 async fn create_confirmed_subscriber(app: &TestApp) {
     // We can reuse the `create_unconfirmed_subscriber` function to create a confirmed subscriber
     // by simply following the confirmation link it returns.
@@ -109,7 +107,6 @@ async fn create_confirmed_subscriber(app: &TestApp) {
         .error_for_status()
         .unwrap();
 }
-
 
 #[tokio::test]
 async fn newsletter_returns_400_for_invalid_data() {
