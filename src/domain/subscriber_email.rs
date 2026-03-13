@@ -1,7 +1,9 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use validator::ValidateEmail;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscriberEmail(String);
 
 impl SubscriberEmail {
@@ -11,6 +13,12 @@ impl SubscriberEmail {
         } else {
             Err(format!("{} is not a valid subscriber email.", email))
         }
+    }
+}
+
+impl fmt::Display for SubscriberEmail {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
