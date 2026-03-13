@@ -173,8 +173,8 @@ pub async fn send_confirmation_email(
 
     email_client
         .send_email(
-            new_subscriber.email,
-            new_subscriber.name,
+            &new_subscriber.email,
+            &new_subscriber.name,
             "Welcome!",
             &html_body,
         )
@@ -226,8 +226,8 @@ pub async fn send_reminder_email(
 
     email_client
         .send_email(
-            new_subscriber.email,
-            new_subscriber.name,
+            &new_subscriber.email,
+            &new_subscriber.name,
             "You are already subscribed!",
             &html_body,
         )

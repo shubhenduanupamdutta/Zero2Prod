@@ -52,8 +52,8 @@ pub async fn publish_newsletter(
             Ok(subscriber) => {
                 email_client
                     .send_email(
-                        subscriber.email.clone(),
-                        subscriber.name,
+                        &subscriber.email,
+                        &subscriber.name,
                         &body.title,
                         &body.content.html,
                     )
@@ -67,7 +67,7 @@ pub async fn publish_newsletter(
                     error.cause_chain = ?error,
                     "Skipping a confirmed subscriber because their stored contact details are invalid"
                 );
-            }
+            },
         }
     }
     Ok(HttpResponse::Ok().finish())
