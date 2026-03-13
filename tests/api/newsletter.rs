@@ -1,3 +1,4 @@
+use serde_json::json;
 use wiremock::{
     Mock,
     ResponseTemplate,
@@ -31,12 +32,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
         }
     });
 
-    let response = reqwest::Client::new()
-        .post(format!("{}/newsletters", &app.address))
-        .json(&newsletter_request_body)
-        .send()
-        .await
-        .expect("Failed to execute request");
+    let response = app.post_newsletter(newsletter_request_body).await;
 
     // Assert
     assert_eq!(response.status().as_u16(), 200);
@@ -47,7 +43,7 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     // Arrange
     let app = spawn_app().await;
     create_confirmed_subscriber(&app).await;
-    
+
     Mock::given(path("/email"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
@@ -55,7 +51,7 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
         .expect(1)
         .mount(&app.email_server)
         .await;
-    
+
     // Act
     let newsletter_request_body = serde_json::json!({
         "title": "Newsletter title",
@@ -64,13 +60,8 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
             "html": "<p>Newsletter body as HTML</p>"
         }
     });
-    
-    let response = reqwest::Client::new()
-        .post(format!("{}/newsletters", &app.address))
-        .json(&newsletter_request_body)
-        .send()
-        .await
-        .expect("Failed to execute request");
+
+    let response = app.post_newsletter(newsletter_request_body).await;
 
     // Assert
     assert_eq!(response.status().as_u16(), 200);
@@ -117,4 +108,40 @@ async fn create_confirmed_subscriber(app: &TestApp) {
         .expect("Failed to execute request")
         .error_for_status()
         .unwrap();
+}
+
+
+#[tokio::test]
+async fn newsletter_returns_400_for_invalid_data() {
+    // Arrange
+    let app = spawn_app().await;
+    let test_cases = vec![
+        (
+            json!({
+                "content": {
+                    "html": "Newsletter body as HTML"
+                }
+            }),
+            "missing title",
+        ),
+        (
+            json!({
+                "title": "Newsletter!",
+            }),
+            "missing content",
+        ),
+    ];
+
+    for (invalid_body, error_message) in test_cases {
+        // Act
+        let response = app.post_newsletter(invalid_body).await;
+
+        // Assert
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not fail with 400 Bad Request when the payload was {}",
+            error_message
+        );
+    }
 }
