@@ -1,7 +1,6 @@
 use serde_json::json;
 use wiremock::{
-    Mock,
-    ResponseTemplate,
+    Mock, ResponseTemplate,
     matchers::{any, method, path},
 };
 

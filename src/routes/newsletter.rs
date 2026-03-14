@@ -1,9 +1,7 @@
 use std::fmt;
 
 use actix_web::{
-    HttpRequest,
-    HttpResponse,
-    ResponseError,
+    HttpRequest, HttpResponse, ResponseError,
     http::{
         StatusCode,
         header::{self, HeaderMap, HeaderValue},
@@ -112,7 +110,6 @@ struct Credentials {
     username: String,
     password: SecretString,
 }
-
 
 #[tracing::instrument(name = "Validate credentials", skip(credentials, pool))]
 async fn validate_credentials(
