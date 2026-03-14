@@ -147,8 +147,11 @@ impl TestApp {
     }
 
     pub async fn post_newsletter(&self, body: serde_json::Value) -> reqwest::Response {
+        // Sent basic auth header with random credentials
+        // `reqwest` does all the encoding/formatting heavy-lifting for us
         reqwest::Client::new()
             .post(format!("{}/newsletters", &self.address))
+            .basic_auth(Uuid::new_v4().to_string(), Some(Uuid::new_v4().to_string()))
             .json(&body)
             .send()
             .await
