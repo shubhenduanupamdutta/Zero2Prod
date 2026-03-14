@@ -179,7 +179,7 @@ impl TestUser {
     async fn store(&self, pool: &PgPool) {
         let password_hash: Output<Sha3_256> = Sha3_256::digest(self.password.as_bytes());
         let password_hash = format!("{:x}", password_hash);
-        
+
         sqlx::query!(
             "INSERT INTO users (user_id, username, password_hash) VALUES ($1, $2, $3)",
             self.user_id,
@@ -191,7 +191,6 @@ impl TestUser {
         .expect("Failed to insert test user.");
     }
 }
-
 
 pub async fn spawn_app() -> TestApp {
     LazyLock::force(&TRACING);
