@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use chrono::Utc;
 use rand::{Rng, distr::Alphanumeric, rng};
 use secrecy::SecretString;
+use sha3::{Digest, Sha3_256, digest::Output};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
@@ -36,6 +37,7 @@ pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
     pub email_server: MockServer,
+    test_user: TestUser,
 }
 
 /// Confirmation Links embedded in the request to the email API
@@ -149,24 +151,47 @@ impl TestApp {
     pub async fn post_newsletter(&self, body: serde_json::Value) -> reqwest::Response {
         // Sent basic auth header with random credentials
         // `reqwest` does all the encoding/formatting heavy-lifting for us
-        let (username, password) = self.test_user().await;
         reqwest::Client::new()
             .post(format!("{}/newsletters", &self.address))
-            .basic_auth(username, Some(password))
+            .basic_auth(&self.test_user.username, Some(&self.test_user.password))
             .json(&body)
             .send()
             .await
             .expect("Failed to execute request")
     }
+}
 
-    pub async fn test_user(&self) -> (String, String) {
-        let row = sqlx::query!("SELECT username, password FROM users LIMIT 1",)
-            .fetch_one(&self.db_pool)
-            .await
-            .expect("Failed to fetch test user.");
-        (row.username, row.password)
+pub struct TestUser {
+    pub user_id: Uuid,
+    pub username: String,
+    pub password: String,
+}
+
+impl TestUser {
+    pub fn generate() -> Self {
+        Self {
+            user_id: Uuid::new_v4(),
+            username: Uuid::new_v4().to_string(),
+            password: Uuid::new_v4().to_string(),
+        }
+    }
+
+    async fn store(&self, pool: &PgPool) {
+        let password_hash: Output<Sha3_256> = Sha3_256::digest(self.password.as_bytes());
+        let password_hash = format!("{:x}", password_hash);
+        
+        sqlx::query!(
+            "INSERT INTO users (user_id, username, password_hash) VALUES ($1, $2, $3)",
+            self.user_id,
+            self.username,
+            password_hash,
+        )
+        .execute(pool)
+        .await
+        .expect("Failed to insert test user.");
     }
 }
+
 
 pub async fn spawn_app() -> TestApp {
     LazyLock::force(&TRACING);
@@ -174,7 +199,7 @@ pub async fn spawn_app() -> TestApp {
     // Launch a mock server to stand in for ZeptoMail API
     let email_server = MockServer::start().await;
 
-    // Randomise configuration to ensure test isolation
+    // Randomize configuration to ensure test isolation
     let configuration = {
         let mut c = get_configuration().expect("Failed to read configuration.");
         // Use a different database for each test case
@@ -204,9 +229,10 @@ pub async fn spawn_app() -> TestApp {
         address,
         db_pool: get_connection_pool(&configuration.database),
         email_server,
+        test_user: TestUser::generate(),
     };
 
-    add_test_user(&test_app.db_pool).await;
+    test_app.test_user.store(&test_app.db_pool).await;
     test_app
 }
 
@@ -246,16 +272,4 @@ pub fn generate_token() -> String {
         .map(char::from)
         .take(25)
         .collect()
-}
-
-async fn add_test_user(pool: &PgPool) {
-    sqlx::query!(
-        "INSERT INTO users (user_id, username, password) VALUES ($1, $2, $3)",
-        Uuid::new_v4(),
-        Uuid::new_v4().to_string(),
-        Uuid::new_v4().to_string(),
-    )
-    .execute(pool)
-    .await
-    .expect("Failed to insert test user.");
 }
