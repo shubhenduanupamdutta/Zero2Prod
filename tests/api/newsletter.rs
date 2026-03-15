@@ -1,8 +1,7 @@
 use serde_json::json;
 use uuid::Uuid;
 use wiremock::{
-    Mock,
-    ResponseTemplate,
+    Mock, ResponseTemplate,
     matchers::{any, method, path},
 };
 

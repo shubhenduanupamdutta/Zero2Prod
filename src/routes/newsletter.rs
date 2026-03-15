@@ -1,9 +1,7 @@
 use std::fmt;
 
 use actix_web::{
-    HttpRequest,
-    HttpResponse,
-    ResponseError,
+    HttpRequest, HttpResponse, ResponseError,
     http::{
         StatusCode,
         header::{self, HeaderMap, HeaderValue},
@@ -19,9 +17,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    domain::NewSubscriber,
-    email_client::EmailClient,
-    telemetry::spawn_blocking_with_tracing,
+    domain::NewSubscriber, email_client::EmailClient, telemetry::spawn_blocking_with_tracing,
     utils::error_chain_fmt,
 };
 
@@ -127,7 +123,7 @@ async fn validate_credentials(
     let mut user_id = None;
     let mut expected_password_hash = SecretString::from(
         "$argon2id$v=19$m=15000,t=2,p=1$gZiV/M1gPc22E1AH/Jh1Hw$CWOrkoo7oJBQ/\
-         iyh7uJ0L02aLEfrHwTWllSAxT0zRno"
+         iyh7uJ0L02aLEfrHwTWillSAxT0zRno"
             .to_string(),
     );
 
