@@ -34,7 +34,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: setup python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v6
 
       - name: Run pre-commit checks
         uses: pre-commit/action@v3.0.1
