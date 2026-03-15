@@ -1,7 +1,9 @@
 use std::fmt;
 
 use actix_web::{
-    HttpRequest, HttpResponse, ResponseError,
+    HttpRequest,
+    HttpResponse,
+    ResponseError,
     http::{
         StatusCode,
         header::{self, HeaderMap, HeaderValue},
@@ -9,6 +11,7 @@ use actix_web::{
     web,
 };
 use anyhow::{Context as _, anyhow};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use base64::Engine;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
@@ -121,23 +124,37 @@ async fn validate_credentials(
         Sha3_256::digest(credentials.password.expose_secret().as_bytes());
     let password_hash = format!("{:x}", password_hash);
 
-    let user_id: Option<_> = sqlx::query!(
+    let rows = sqlx::query!(
         r#"
-        SELECT user_id
+        SELECT user_id, password_hash
         FROM users
-        WHERE username = $1 AND password_hash = $2
+        WHERE username = $1
         "#,
-        credentials.username,
-        password_hash,
+        credentials.username
     )
     .fetch_optional(pool)
     .await
-    .context("Failed to perform a query to validate auth credentials")?;
+    .context("Failed to perform a query to validate auth credentials")
+    .map_err(PublishError::UnexpectedError)?;
 
-    user_id
-        .map(|row| row.user_id)
-        .ok_or_else(|| anyhow!("Invalid username or password."))
-        .map_err(PublishError::AuthError)
+    let (expected_password_hash, user_id) = match rows {
+        Some(row) => (row.password_hash, row.user_id),
+        None => return Err(PublishError::AuthError(anyhow!("Unknown Username"))),
+    };
+
+    let expected_password_hash = PasswordHash::new(&expected_password_hash)
+        .context("Failed to parse hash in PHC string format.")
+        .map_err(PublishError::UnexpectedError)?;
+
+    Argon2::default()
+        .verify_password(
+            credentials.password.expose_secret().as_bytes(),
+            &expected_password_hash,
+        )
+        .context("Invalid Password")
+        .map_err(PublishError::AuthError)?;
+
+    Ok(user_id)
 }
 
 fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
