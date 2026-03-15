@@ -15,7 +15,6 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use base64::Engine;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
-use sha3::{Digest, Sha3_256, digest::Output};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -120,10 +119,6 @@ async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool,
 ) -> Result<Uuid, PublishError> {
-    let password_hash: Output<Sha3_256> =
-        Sha3_256::digest(credentials.password.expose_secret().as_bytes());
-    let password_hash = format!("{:x}", password_hash);
-
     let rows = sqlx::query!(
         r#"
         SELECT user_id, password_hash
