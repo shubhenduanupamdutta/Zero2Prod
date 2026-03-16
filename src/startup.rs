@@ -1,8 +1,7 @@
 use std::net::TcpListener;
 
 use actix_web::{
-    App,
-    HttpServer,
+    App, HttpServer,
     dev::Server,
     web::{self, Data},
 };

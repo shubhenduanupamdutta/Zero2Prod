@@ -1,3 +1,4 @@
+pub mod authentication;
 pub mod configuration;
 pub mod domain;
 pub mod email_client;
@@ -6,4 +7,3 @@ pub mod startup;
 pub mod telemetry;
 pub mod token_cleanup;
 pub mod utils;
-pub mod authentication;

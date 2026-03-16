@@ -27,23 +27,21 @@ pub async fn login_form(
 ) -> HttpResponse {
     let error_html = match query {
         None => "".into(),
-        Some(query) => {
-            match query.0.verify(&secret) {
-                Ok(error_message) => {
-                    format!(
-                        r#"<p style="color: red;">{}</p>"#,
-                        htmlescape::encode_minimal(&error_message)
-                    )
-                },
-                Err(e) => {
-                    tracing::warn!(
-                        error.message = %e,
-                        error.cause_chain = ?e,
-                        "Failed to verify the HMAC tag for the error message"
-                    );
-                    "".into()
-                },
-            }
+        Some(query) => match query.0.verify(&secret) {
+            Ok(error_message) => {
+                format!(
+                    r#"<p style="color: red;">{}</p>"#,
+                    htmlescape::encode_minimal(&error_message)
+                )
+            },
+            Err(e) => {
+                tracing::warn!(
+                    error.message = %e,
+                    error.cause_chain = ?e,
+                    "Failed to verify the HMAC tag for the error message"
+                );
+                "".into()
+            },
         },
     };
     HttpResponse::Ok()

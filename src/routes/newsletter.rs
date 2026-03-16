@@ -1,9 +1,7 @@
 use std::fmt;
 
 use actix_web::{
-    HttpRequest,
-    HttpResponse,
-    ResponseError,
+    HttpRequest, HttpResponse, ResponseError,
     http::{
         StatusCode,
         header::{self, HeaderMap, HeaderValue},
@@ -81,11 +79,9 @@ pub async fn publish_newsletter(
 
     let user_id = validate_credentials(credentials, &pool)
         .await
-        .map_err(|e| {
-            match e {
-                AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
-                AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
-            }
+        .map_err(|e| match e {
+            AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
+            AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
         })?;
     tracing::Span::current().record("user_id", tracing::field::display(&user_id));
 
@@ -118,7 +114,6 @@ pub async fn publish_newsletter(
     }
     Ok(HttpResponse::Ok().finish())
 }
-
 
 fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
     // The header value, if present must be a valid UTF8 string
