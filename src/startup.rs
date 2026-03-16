@@ -1,6 +1,12 @@
 use std::net::TcpListener;
 
-use actix_web::{App, HttpServer, dev::Server, web};
+use actix_web::{
+    App,
+    HttpServer,
+    dev::Server,
+    web::{self, Data},
+};
+use secrecy::SecretString;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use tracing_actix_web::TracingLogger;
 
@@ -53,6 +59,7 @@ impl Application {
             email_client,
             configuration.application.base_url,
             configuration.subscription.token_expiration_seconds,
+            configuration.application.hmac_secret,
         )?;
         Ok(Self {
             port,
@@ -75,6 +82,8 @@ pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
 }
 
 pub struct ApplicationBaseUrl(pub String);
+#[derive(Clone)]
+pub struct HmacSecret(pub SecretString);
 
 pub fn run(
     listener: TcpListener,
@@ -82,6 +91,7 @@ pub fn run(
     email_client: EmailClient,
     base_url: String,
     token_expiration_seconds: u32,
+    hmac_secret: SecretString,
 ) -> Result<Server, std::io::Error> {
     let pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
@@ -105,6 +115,7 @@ pub fn run(
             .app_data(base_url.clone())
             .app_data(token_expiration_seconds.clone())
             .app_data(email_template_engine.clone())
+            .app_data(Data::new(HmacSecret(hmac_secret.clone())))
     })
     .listen(listener)?
     .run();
