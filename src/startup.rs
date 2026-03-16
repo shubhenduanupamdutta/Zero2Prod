@@ -7,7 +7,7 @@ use tracing_actix_web::TracingLogger;
 use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::{EmailClient, EmailTemplateEngine},
-    routes::{confirm, health_check, publish_newsletter, subscribe},
+    routes::{confirm, health_check, home, login_form, publish_newsletter, subscribe},
     token_cleanup::spawn_token_cleanup_task,
 };
 
@@ -97,6 +97,8 @@ pub fn run(
             .route("/subscriptions", web::post().to(subscribe))
             .route("/subscriptions/confirm", web::get().to(confirm))
             .route("/newsletters", web::post().to(publish_newsletter))
+            .route("/", web::get().to(home))
+            .route("/login", web::get().to(login_form))
             .app_data(pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())
