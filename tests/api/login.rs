@@ -1,4 +1,7 @@
+use std::collections::HashSet;
+
 use serde_json::json;
+use wiremock::http::HeaderValue;
 
 use crate::helpers::{assert_is_redirect_to, spawn_app};
 
@@ -15,5 +18,11 @@ async fn an_error_flash_message_is_set_on_failure() {
     let response = app.post_login(&login_body).await;
 
     // Assert
+    let cookies: HashSet<_> = response
+        .headers()
+        .get_all("Set-Cookie")
+        .into_iter()
+        .collect();
+    assert!(cookies.contains(&HeaderValue::from_str("_flash=Authentication Failed").unwrap()));
     assert_is_redirect_to(&response, "/login");
 }
