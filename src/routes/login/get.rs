@@ -12,13 +12,8 @@ pub async fn login_form(request: HttpRequest) -> HttpResponse {
         Some(cookie) => format!(r#"<p><i>{}</i></p>"#, cookie.value()),
     };
 
-    HttpResponse::Ok()
+    let mut response = HttpResponse::Ok()
         .content_type(ContentType::html())
-        .cookie(
-            Cookie::build("_flash", "")
-                .max_age(Duration::seconds(0))
-                .finish(),
-        )
         .body(format!(
             r#"<!DOCTYPE html>
 <html lang="en">
@@ -39,5 +34,10 @@ pub async fn login_form(request: HttpRequest) -> HttpResponse {
     </form>
 </body>
 </html>"#
-        ))
+        ));
+
+    response
+        .add_removal_cookie(&Cookie::new("_flash", ""))
+        .unwrap();
+    response
 }
