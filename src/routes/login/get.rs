@@ -1,4 +1,9 @@
-use actix_web::{HttpRequest, HttpResponse, http::header::ContentType};
+use actix_web::{
+    HttpRequest,
+    HttpResponse,
+    cookie::{Cookie, time::Duration},
+    http::header::ContentType,
+};
 
 
 pub async fn login_form(request: HttpRequest) -> HttpResponse {
@@ -9,6 +14,11 @@ pub async fn login_form(request: HttpRequest) -> HttpResponse {
 
     HttpResponse::Ok()
         .content_type(ContentType::html())
+        .cookie(
+            Cookie::build("_flash", "")
+                .max_age(Duration::seconds(0))
+                .finish(),
+        )
         .body(format!(
             r#"<!DOCTYPE html>
 <html lang="en">
