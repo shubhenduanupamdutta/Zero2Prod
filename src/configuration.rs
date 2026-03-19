@@ -12,6 +12,7 @@ pub struct Settings {
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
     pub subscription: SubscriptionSettings,
+    pub redis_uri: SecretString,
 }
 
 #[derive(Deserialize, Clone)]
