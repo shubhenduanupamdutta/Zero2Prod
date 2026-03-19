@@ -1,12 +1,17 @@
 use std::sync::LazyLock;
 
 use argon2::{
-    Algorithm, Argon2, Params, PasswordHasher, Version,
+    Algorithm,
+    Argon2,
+    Params,
+    PasswordHasher,
+    Version,
     password_hash::{SaltString, rand_core::OsRng},
 };
 use chrono::Utc;
 use rand::{Rng, distr::Alphanumeric, rng};
 use secrecy::SecretString;
+use serde::Serialize;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
@@ -162,6 +167,20 @@ impl TestApp {
             .await
             .expect("Failed to execute request")
     }
+
+    pub async fn post_login<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
+        // `form` method makes sure that the body is URL-encoded and Content-Type is set
+        // to appropriate value (`application/x-www-form-urlencoded`)
+        reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("Client could not be built")
+            .post(format!("{}/login", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
 }
 
 pub struct TestUser {
@@ -283,4 +302,10 @@ pub fn generate_token() -> String {
         .map(char::from)
         .take(25)
         .collect()
+}
+
+/// Helper function to check redirection is correct
+pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
+    assert_eq!(response.status().as_u16(), 303);
+    assert_eq!(response.headers().get("Location").unwrap(), location);
 }
