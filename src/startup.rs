@@ -1,11 +1,8 @@
 use std::net::TcpListener;
 
-use actix_web::{
-    App, HttpServer,
-    dev::Server,
-    web::{self, Data},
-};
-use secrecy::SecretString;
+use actix_web::{App, HttpServer, cookie::Key, dev::Server, web};
+use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
+use secrecy::{ExposeSecret, SecretString};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use tracing_actix_web::TracingLogger;
 
@@ -99,8 +96,12 @@ pub fn run(
     let email_template_engine = web::Data::new(
         EmailTemplateEngine::new("templates").expect("Failed to initialize email template engine"),
     );
+    let message_store =
+        CookieMessageStore::builder(Key::from(hmac_secret.expose_secret().as_bytes())).build();
+    let message_framework = FlashMessagesFramework::builder(message_store).build();
     let server = HttpServer::new(move || {
         App::new()
+            .wrap(message_framework.clone())
             .wrap(TracingLogger::default())
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
@@ -114,7 +115,6 @@ pub fn run(
             .app_data(base_url.clone())
             .app_data(token_expiration_seconds.clone())
             .app_data(email_template_engine.clone())
-            .app_data(Data::new(HmacSecret(hmac_secret.clone())))
     })
     .listen(listener)?
     .run();
