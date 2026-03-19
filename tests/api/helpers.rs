@@ -1,11 +1,7 @@
 use std::sync::LazyLock;
 
 use argon2::{
-    Algorithm,
-    Argon2,
-    Params,
-    PasswordHasher,
-    Version,
+    Algorithm, Argon2, Params, PasswordHasher, Version,
     password_hash::{SaltString, rand_core::OsRng},
 };
 use chrono::Utc;
