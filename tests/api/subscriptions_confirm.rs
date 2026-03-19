@@ -2,7 +2,8 @@ use chrono::{Duration, SubsecRound, Utc};
 use reqwest::StatusCode;
 use serde_json::Value;
 use wiremock::{
-    Mock, ResponseTemplate,
+    Mock,
+    ResponseTemplate,
     matchers::{method, path},
 };
 

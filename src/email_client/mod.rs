@@ -73,7 +73,8 @@ impl EmailClient {
 mod tests {
     use claims::assert_err;
     use fake::{
-        Fake, Faker,
+        Fake,
+        Faker,
         faker::{
             internet::en::SafeEmail,
             lorem::en::{Paragraph, Sentence},
@@ -81,7 +82,10 @@ mod tests {
         },
     };
     use wiremock::{
-        Mock, MockServer, Request, ResponseTemplate,
+        Mock,
+        MockServer,
+        Request,
+        ResponseTemplate,
         matchers::{any, header, header_exists, method, path},
     };
 

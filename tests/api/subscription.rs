@@ -1,6 +1,7 @@
 use uuid::Uuid;
 use wiremock::{
-    Mock, ResponseTemplate,
+    Mock,
+    ResponseTemplate,
     matchers::{method, path},
 };
 
