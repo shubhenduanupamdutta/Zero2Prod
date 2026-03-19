@@ -46,6 +46,7 @@ pub struct TestApp {
     pub db_pool: PgPool,
     pub email_server: MockServer,
     pub test_user: TestUser,
+    pub api_client: reqwest::Client,
 }
 
 /// Confirmation Links embedded in the request to the email API
@@ -55,7 +56,7 @@ pub struct ConfirmationLinks {
 
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
-        reqwest::Client::new()
+        self.api_client
             .post(format!("{}/subscriptions", &self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
@@ -65,7 +66,7 @@ impl TestApp {
     }
 
     pub async fn confirm_subscriptions(&self, token: &str) -> reqwest::Response {
-        reqwest::Client::new()
+        self.api_client
             .get(format!(
                 "{}/subscriptions/confirm?subscription_token={}",
                 &self.address, token
@@ -159,7 +160,7 @@ impl TestApp {
     pub async fn post_newsletter(&self, body: serde_json::Value) -> reqwest::Response {
         // Sent basic auth header with random credentials
         // `reqwest` does all the encoding/formatting heavy-lifting for us
-        reqwest::Client::new()
+        self.api_client
             .post(format!("{}/newsletters", &self.address))
             .basic_auth(&self.test_user.username, Some(&self.test_user.password))
             .json(&body)
@@ -171,15 +172,23 @@ impl TestApp {
     pub async fn post_login<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         // `form` method makes sure that the body is URL-encoded and Content-Type is set
         // to appropriate value (`application/x-www-form-urlencoded`)
-        reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .expect("Client could not be built")
+        self.api_client
             .post(format!("{}/login", &self.address))
             .form(body)
             .send()
             .await
             .expect("Failed to execute request")
+    }
+
+    pub async fn get_login_html(&self) -> String {
+        self.api_client
+            .get(format!("{}/login", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+            .text()
+            .await
+            .expect("Failed to read response body")
     }
 }
 
@@ -254,12 +263,19 @@ pub async fn spawn_app() -> TestApp {
 
     let _server_handle = tokio::spawn(application.run_until_stopped());
 
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .cookie_store(true)
+        .build()
+        .expect("Failed to build HTTP client.");
+
     let test_app = TestApp {
         port: application_port,
         address,
         db_pool: get_connection_pool(&configuration.database),
         email_server,
         test_user: TestUser::generate(),
+        api_client: client,
     };
 
     test_app.test_user.store(&test_app.db_pool).await;
