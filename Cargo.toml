@@ -2,7 +2,7 @@
 name = "zero2prod"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.93.1"
+rust-version = "1.94.0"
 publish = false
 authors = ["Shubhendu Anupam Dutta <shubhenduanupam@gmail.com>"]
 repository = "https://github.com/shubhenduanupamdutta/Zero2Prod"

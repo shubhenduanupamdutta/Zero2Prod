@@ -13,7 +13,6 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   SQLX_OFFLINE: true
-  SQLX_VERSION: 0.8.0
   SQLX_FEATURES: "rustls,postgres"
 
 jobs:
@@ -28,10 +27,16 @@ jobs:
       - name: Install rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          components: clippy, rustfmt
+          toolchain: 1.94.0
+          components: clippy
+          cache: true
 
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+      - name: Install nightly rustfmt
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly-2026-03-18
+          components: rustfmt
+          cache: true
 
       - name: setup python
         uses: actions/setup-python@v6

@@ -11,13 +11,28 @@ repos:
       - id: check-json
       - id: mixed-line-ending
 
-  - repo: https://github.com/doublify/pre-commit-rust
-    rev: v1.0
+  - repo: local
     hooks:
-      - id: fmt
-        args: ["--verbose", "--"]
       - id: cargo-check
-        args: ["--workspace"]
+        name: cargo check
+        entry: cargo check --all-targets
+        language: system
+        pass_filenames: false
+        types_or: [rust]
+
+      - id: cargo-fmt
+        name: cargo fmt nightly
+        entry: cargo +nightly fmt --all -- --check
+        language: system
+        pass_filenames: false
+        types_or: [rust]
+
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --all -- -D warnings
+        language: system
+        pass_filenames: false
+        types_or: [rust]
 
   - repo: https://github.com/crate-ci/typos
     rev: v1

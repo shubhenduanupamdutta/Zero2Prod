@@ -64,19 +64,6 @@ jobs:
       - name: Check that queries are fresh
         run: cargo sqlx prepare --workspace --check -- --all-targets
 
-  # `fmt` container job
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install the Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: rustfmt
-      - name: Enforce formatting
-        run: cargo fmt --check
-
   # `clippy` container job
   clippy:
     name: Clippy
