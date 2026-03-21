@@ -1,6 +1,6 @@
 # Builder stage
 
-FROM lukemathwalker/cargo-chef@sha256:cbf05770c13859408bfcc9d5b6cd1d4e5c1c74d22de85b35de1f07b1f8ef9628 AS chef
+FROM lukemathwalker/cargo-chef@sha256:fcdcbdd1a4bbf80cc8319371c2e9ff3f305065a92907f1c87e708438a020aeea AS chef
 WORKDIR /app
 RUN apt update && apt install lld clang -y
 
