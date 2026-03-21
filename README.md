@@ -318,3 +318,11 @@ When you need to add a new mandatory column to a database table, you can follow 
 ### Update your `APP_REDIS_URI` environment variable to point to the Valkey database.
 
 ### Add your application as a trusted source in the Valkey database settings to allow connections from your application.
+
+---
+
+## Locally running Zero2Prod with Valkey and Postgres running on Docker
+
+```sh
+docker run --env-file .env.local --add-host=host.docker.internal:host-gateway -p 8000:8000 zero2prod:latest | bunyan
+```
