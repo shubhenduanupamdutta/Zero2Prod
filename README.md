@@ -302,3 +302,19 @@ When you need to add a new mandatory column to a database table, you can follow 
 #### 2. Start Using the New Column
 
 #### 3. Backfill and Mark as Not Null and Mandatory
+
+---
+
+## Running Valkey as a Drop In replacement for Redis in Digital Ocean
+
+---
+
+### Go to [databases section in Digital Ocean](https://cloud.digitalocean.com/databases)
+
+### Click on "Create Database" and select "Valkey"
+
+### After the database is created, you can get the connection string from the Digital Ocean control panel.
+
+### Update your `APP_REDIS_URI` environment variable to point to the Valkey database.
+
+### Add your application as a trusted source in the Valkey database settings to allow connections from your application.
