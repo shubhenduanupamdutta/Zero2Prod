@@ -190,6 +190,17 @@ impl TestApp {
             .await
             .expect("Failed to read response body")
     }
+    
+    pub async fn get_admin_dashboard_html(&self) -> String {
+        self.api_client
+            .get(format!("{}/admin/dashboard", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+            .text()
+            .await
+            .expect("Failed to read response body")
+    }
 }
 
 pub struct TestUser {
