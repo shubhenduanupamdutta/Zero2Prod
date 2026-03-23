@@ -95,3 +95,70 @@ async fn current_password_must_be_valid() {
     // Assert - Part 3 - Check that the error message is displayed
     assert!(html_page.contains("<p><i>The current password is incorrect.</i></p>"))
 }
+
+
+#[tokio::test]
+async fn new_password_should_be_larger_than_12_characters() {
+    // Arrange
+    let app = spawn_app().await;
+    let new_password = "a".repeat(11);
+
+    // Act - Part 1 - Login
+    app.post_login(&json!({
+        "username": &app.test_user.username,
+        "password": &app.test_user.password,
+    }))
+    .await;
+
+    // Act - Part 2 - Attempt to change password with an invalid new password
+    let response = app
+        .post_change_password(&json!({
+            "current_password": &app.test_user.password,
+            "new_password": &new_password,
+            "new_password_check": &new_password,
+        }))
+        .await;
+    // Assert - Part 2 - Check that we are back to the change password form
+    assert_is_redirect_to(&response, "/admin/password");
+
+    // Act - Part 3 - Follow the redirect
+    let html_page = app.get_change_password_html().await;
+    // Assert - Part 3 - Check that the error message is displayed
+    assert!(
+        html_page
+            .contains("<p><i>The new password must be between 12 and 128 characters long.</i></p>")
+    )
+}
+
+#[tokio::test]
+async fn new_password_should_be_smaller_than_128_characters() {
+    // Arrange
+    let app = spawn_app().await;
+    let new_password = "a".repeat(129);
+
+    // Act - Part 1 - Login
+    app.post_login(&json!({
+        "username": &app.test_user.username,
+        "password": &app.test_user.password,
+    }))
+    .await;
+
+    // Act - Part 2 - Attempt to change password with an invalid new password
+    let response = app
+        .post_change_password(&json!({
+            "current_password": &app.test_user.password,
+            "new_password": &new_password,
+            "new_password_check": &new_password,
+        }))
+        .await;
+    // Assert - Part 2 - Check that we are back to the change password form
+    assert_is_redirect_to(&response, "/admin/password");
+
+    // Act - Part 3 - Follow the redirect
+    let html_page = app.get_change_password_html().await;
+    // Assert - Part 3 - Check that the error message is displayed
+    assert!(
+        html_page
+            .contains("<p><i>The new password must be between 12 and 128 characters long.</i></p>")
+    )
+}

@@ -7,7 +7,7 @@ use crate::{
     authentication::{AuthError, Credentials, validate_credentials},
     routes::admin::dashboard::get_username,
     session_state::TypedSession,
-    utils::{e500, see_other},
+    utils::{e500, password_is_of_valid_length, see_other},
 };
 
 #[derive(serde::Deserialize)]
@@ -26,6 +26,7 @@ pub async fn change_password(
     if user_id.is_none() {
         return Ok(see_other("/login"));
     }
+    
     let user_id = user_id.unwrap();
     if form.new_password.expose_secret() != form.new_password_check.expose_secret() {
         FlashMessage::error(
@@ -34,6 +35,14 @@ pub async fn change_password(
         .send();
         return Ok(see_other("/admin/password"));
     }
+    
+    if !password_is_of_valid_length(&form.new_password) {
+        FlashMessage::error(
+            "The new password must be between 12 and 128 characters long.",
+        )
+        .send();
+        return Ok(see_other("/admin/password"));
+    };
 
     let username = get_username(user_id, &pool).await.map_err(e500)?;
     let credentials = Credentials {
