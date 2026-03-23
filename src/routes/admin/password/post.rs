@@ -1,4 +1,6 @@
 use actix_web::{HttpResponse, web};
+use actix_web_flash_messages::FlashMessage;
+use secrecy::{ExposeSecret, SecretString};
 
 use crate::{
     session_state::TypedSession,
@@ -7,9 +9,9 @@ use crate::{
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
-    current_password: String,
-    new_password: String,
-    new_password_check: String,
+    current_password: SecretString,
+    new_password: SecretString,
+    new_password_check: SecretString,
 }
 
 pub async fn change_password(
@@ -19,8 +21,12 @@ pub async fn change_password(
     if session.get_user_id().map_err(e500)?.is_none() {
         return Ok(see_other("/login"));
     }
-    if form.new_password != form.new_password_check {
-        return Ok(HttpResponse::BadRequest().body("New password and confirmation do not match"));
+    if form.new_password.expose_secret() != form.new_password_check.expose_secret() {
+        FlashMessage::error(
+            "You entered two different new passwords - the field values must match.",
+        )
+        .send();
+        return Ok(see_other("/admin/password"));
     }
 
     // Here you would typically verify the current password and update it in the database.
