@@ -1,3 +1,5 @@
+mod admin_dashboard;
+mod change_password;
 mod health_check;
 mod helpers;
 mod login;
@@ -6,4 +8,3 @@ mod subscription;
 mod subscriptions_confirm;
 mod token_cleanup;
 mod token_expiry;
-mod admin_dashboard;
