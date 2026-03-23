@@ -1,5 +1,3 @@
-use std::fmt;
-
 use actix_web::{
     HttpResponse,
     http::header::{ContentType, LOCATION},
@@ -9,15 +7,7 @@ use anyhow::Context as _;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::session_state::TypedSession;
-
-/// Return an opaque 500 while preserving the error's root cause for logging
-fn e500<T>(e: T) -> actix_web::Error
-where
-    T: fmt::Debug + fmt::Display + 'static,
-{
-    actix_web::error::ErrorInternalServerError(e)
-}
+use crate::{session_state::TypedSession, utils::e500};
 
 
 pub async fn admin_dashboard(
