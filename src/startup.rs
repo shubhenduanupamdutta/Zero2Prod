@@ -11,16 +11,7 @@ use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::{EmailClient, EmailTemplateEngine},
     routes::{
-        admin_dashboard,
-        change_password,
-        change_password_form,
-        confirm,
-        health_check,
-        home,
-        login,
-        login_form,
-        publish_newsletter,
-        subscribe,
+        admin_dashboard, change_password, change_password_form, confirm, health_check, home, log_out, login, login_form, publish_newsletter, subscribe
     },
     token_cleanup::spawn_token_cleanup_task,
 };
@@ -133,6 +124,7 @@ pub async fn run(
             .route("/admin/dashboard", web::get().to(admin_dashboard))
             .route("/admin/password", web::get().to(change_password_form))
             .route("/admin/password", web::post().to(change_password))
+            .route("/admin/logout", web::post().to(log_out))
             .app_data(pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())
