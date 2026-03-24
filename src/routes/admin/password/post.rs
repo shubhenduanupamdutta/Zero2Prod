@@ -4,7 +4,7 @@ use secrecy::{ExposeSecret, SecretString};
 use sqlx::PgPool;
 
 use crate::{
-    authentication::{AuthError, Credentials, validate_credentials},
+    authentication::{self, AuthError, Credentials, validate_credentials},
     routes::admin::dashboard::get_username,
     session_state::TypedSession,
     utils::{e500, password_is_of_valid_length, see_other},
@@ -56,5 +56,9 @@ pub async fn change_password(
         };
     }
 
-    Ok(HttpResponse::Ok().body("Password changed successfully"))
+    authentication::change_password(user_id, form.0.new_password, &pool)
+        .await
+        .map_err(e500)?;
+    FlashMessage::error("Your password has been changed.").send();
+    Ok(see_other("/admin/password"))
 }
