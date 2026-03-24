@@ -11,7 +11,17 @@ use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::{EmailClient, EmailTemplateEngine},
     routes::{
-        admin_dashboard, change_password, change_password_form, confirm, health_check, home, log_out, login, login_form, publish_newsletter, subscribe
+        admin_dashboard,
+        change_password,
+        change_password_form,
+        confirm,
+        health_check,
+        home,
+        log_out,
+        login,
+        login_form,
+        publish_newsletter,
+        subscribe,
     },
     token_cleanup::spawn_token_cleanup_task,
 };
