@@ -162,3 +162,54 @@ async fn new_password_should_be_smaller_than_128_characters() {
             .contains("<p><i>The new password must be between 12 and 128 characters long.</i></p>")
     )
 }
+
+
+#[tokio::test]
+async fn changing_password_works() {
+    // Arrange
+    let app = spawn_app().await;
+    let new_password = Uuid::new_v4().to_string();
+
+    // Act - Part 1 - Login
+    let login_body = json!({
+        "username": &app.test_user.username,
+        "password": &app.test_user.password,
+    });
+    let response = app.post_login(&login_body).await;
+    // Assert - Part 1 - Check that we are logged in
+    assert_is_redirect_to(&response, "/admin/dashboard");
+
+    // Act - Part 2 - Change password
+    let response = app
+        .post_change_password(&json!({
+            "current_password": &app.test_user.password,
+            "new_password": &new_password,
+            "new_password_check": &new_password,
+        }))
+        .await;
+    // Assert - Part 2 - Check that we are back to password change form with a success message
+    assert_is_redirect_to(&response, "/admin/password");
+
+    // Act - Part 3 - Follow the redirect
+    let html_page = app.get_change_password_html().await;
+    // Assert - Part 3 - Check that the success message is displayed
+    assert!(html_page.contains("<p><i>Your password has been changed.</i></p>"));
+
+    // Act - Part 4 - Logout
+    let response = app.post_logout().await;
+    assert_is_redirect_to(&response, "/login");
+
+    // Act - Part 5 - Follow the redirect
+    let html_page = app.get_login_html().await;
+    // Assert - Part 5 - Check that the login page is displayed
+    assert!(html_page.contains("<p><i>You have successfully logged out.</i></p>"));
+
+    // Act - Part 6 - Login with the new password
+    let login_body = json!({
+        "username": &app.test_user.username,
+        "password": &new_password,
+    });
+    let response = app.post_login(&login_body).await;
+    // Assert - Part 6 - Check that we are logged in with the new password
+    assert_is_redirect_to(&response, "/admin/dashboard");
+}
