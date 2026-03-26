@@ -12,7 +12,18 @@ use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::{EmailClient, EmailTemplateEngine},
     routes::{
-        admin_dashboard, change_password, change_password_form, confirm, health_check, home, log_out, login, login_form, publish_newsletter, submit_newsletter_form, subscribe
+        admin_dashboard,
+        change_password,
+        change_password_form,
+        confirm,
+        health_check,
+        home,
+        log_out,
+        login,
+        login_form,
+        publish_newsletter,
+        submit_newsletter_form,
+        subscribe,
     },
     token_cleanup::spawn_token_cleanup_task,
 };
@@ -129,7 +140,7 @@ pub async fn run(
                     .route("/password", web::post().to(change_password))
                     .route("/logout", web::post().to(log_out))
                     .route("/newsletters", web::post().to(publish_newsletter))
-                    .route("/newsletters", web::get().to(submit_newsletter_form))
+                    .route("/newsletters", web::get().to(submit_newsletter_form)),
             )
             .app_data(pool.clone())
             .app_data(email_client.clone())

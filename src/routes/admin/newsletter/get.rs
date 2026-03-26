@@ -28,15 +28,16 @@ pub async fn submit_newsletter_form(
 <body>
     {message_html}
     <form action="/admin/newsletters" method="post">
-        <label>Title
+        <label>Title:<br />
             <input type="text" name="title" placeholder="Enter newsletter title here" required>
         </label>
         <br />
-        <label>Content
-            <textarea name="content" placeholder="Enter newsletter content here" required></textarea>
+        <label>Content:<br />
+            <textarea name="content" placeholder="Enter newsletter content here" rows="20" cols="50"required></textarea>
         </label>
-        <button type="submit">Login</button>
+        <button type="submit">Publish</button>
     </form>
+    <p><a href="/admin/dashboard">&lt;- Back</a></p>
 </body>
 </html>"#
         ))
