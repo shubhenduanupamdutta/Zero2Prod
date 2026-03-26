@@ -12,6 +12,7 @@ use chrono::Utc;
 use rand::{Rng, distr::Alphanumeric, rng};
 use secrecy::SecretString;
 use serde::Serialize;
+use serde_json::json;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
@@ -157,18 +158,6 @@ impl TestApp {
         .expect("Failed to insert test subscription token.");
     }
 
-    pub async fn post_newsletter(&self, body: serde_json::Value) -> reqwest::Response {
-        // Sent basic auth header with random credentials
-        // `reqwest` does all the encoding/formatting heavy-lifting for us
-        self.api_client
-            .post(format!("{}/newsletters", &self.address))
-            .basic_auth(&self.test_user.username, Some(&self.test_user.password))
-            .json(&body)
-            .send()
-            .await
-            .expect("Failed to execute request")
-    }
-
     pub async fn post_login<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         // `form` method makes sure that the body is URL-encoded and Content-Type is set
         // to appropriate value (`application/x-www-form-urlencoded`)
@@ -231,6 +220,30 @@ impl TestApp {
             .await
             .expect("Failed to execute request")
     }
+
+    pub async fn get_publish_newsletter(&self) -> reqwest::Response {
+        self.api_client
+            .get(format!("{}/admin/newsletters", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn get_publish_newsletter_html(&self) -> String {
+        self.get_publish_newsletter().await.text().await.unwrap()
+    }
+
+    pub async fn post_publish_newsletter<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: Serialize,
+    {
+        self.api_client
+            .post(format!("{}/admin/newsletters", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
 }
 
 pub struct TestUser {
@@ -270,6 +283,14 @@ impl TestUser {
         .execute(pool)
         .await
         .expect("Failed to insert test user.");
+    }
+
+    pub async fn login(&self, app: &TestApp) {
+        app.post_login(&json!({
+            "username": &self.username,
+            "password": &self.password,
+        }))
+        .await;
     }
 }
 

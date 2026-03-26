@@ -8,18 +8,13 @@ use crate::{
     authentication::UserId,
     domain::NewSubscriber,
     email_client::EmailClient,
-    utils::e500,
+    utils::{e500, see_other},
 };
 
 #[derive(Deserialize)]
 pub struct BodyData {
     title: String,
-    content: Content,
-}
-
-#[derive(Deserialize)]
-pub struct Content {
-    html: String,
+    content: String,
 }
 
 #[tracing::instrument(name = "Publish a newsletter issue",
@@ -45,7 +40,7 @@ pub async fn publish_newsletter(
                         &subscriber.email,
                         &subscriber.name,
                         &body.title,
-                        &body.content.html,
+                        &body.content,
                     )
                     .await
                     .with_context(|| {
@@ -63,8 +58,8 @@ pub async fn publish_newsletter(
         }
     }
 
-    FlashMessage::info("The newsletter issue has been published").send();
-    Ok(HttpResponse::Ok().finish())
+    FlashMessage::info("The newsletter issue has been published!").send();
+    Ok(see_other("/admin/newsletters"))
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
