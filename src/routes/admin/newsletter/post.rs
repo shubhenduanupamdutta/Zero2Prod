@@ -8,7 +8,7 @@ use crate::{
     authentication::UserId,
     domain::NewSubscriber,
     email_client::EmailClient,
-    idempotency::IdempotencyKey,
+    idempotency::{IdempotencyKey, get_saved_response},
     utils::{e400, e500, see_other},
 };
 
@@ -29,10 +29,20 @@ pub async fn publish_newsletter(
     email_client: web::Data<EmailClient>,
     user_id: web::ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    let user_id = user_id.into_inner();
     // We must destructure the form to avoid upsetting the borrow-checker
     let FormData { title, content, idempotency_key } = form.0;
 
-    let _idempotency_key: IdempotencyKey = idempotency_key.try_into().map_err(e400)?;
+    let idempotency_key: IdempotencyKey = idempotency_key.try_into().map_err(e400)?;
+
+    // Return early if we have saved response in the database
+    if let Some(saved_response) = get_saved_response(&pool, &idempotency_key, *user_id)
+        .await
+        .map_err(e500)?
+    {
+        FlashMessage::info("the newsletter issue has been published!").send();
+        return Ok(saved_response);
+    }
 
     let subscribers = get_confirmed_subscribers(&pool)
         .await
