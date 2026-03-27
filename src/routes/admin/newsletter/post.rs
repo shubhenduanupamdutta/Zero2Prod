@@ -8,7 +8,7 @@ use crate::{
     authentication::UserId,
     domain::NewSubscriber,
     email_client::EmailClient,
-    idempotency::{IdempotencyKey, get_saved_response},
+    idempotency::{IdempotencyKey, get_saved_response, save_response},
     utils::{e400, e500, see_other},
 };
 
@@ -40,7 +40,7 @@ pub async fn publish_newsletter(
         .await
         .map_err(e500)?
     {
-        FlashMessage::info("the newsletter issue has been published!").send();
+        FlashMessage::info("The newsletter issue has been published!").send();
         return Ok(saved_response);
     }
 
@@ -71,7 +71,12 @@ pub async fn publish_newsletter(
     }
 
     FlashMessage::info("The newsletter issue has been published!").send();
-    Ok(see_other("/admin/newsletters"))
+    let response = see_other("/admin/newsletters");
+    let response = save_response(&pool, &idempotency_key, *user_id, response)
+        .await
+        .context("Failed to save the response of publishing newsletter issue")
+        .map_err(e500)?;
+    Ok(response)
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
