@@ -44,3 +44,24 @@ where
 {
     actix_web::error::ErrorInternalServerError(e)
 }
+
+
+/// Return a 400 with the user-representation of the validation error as body
+///
+/// This function takes an error of any type that implements the `fmt::Debug` and `fmt::Display`
+/// traits, and returns an `actix_web::Error` that represents a bad request (HTTP 400). The error
+/// message is included in the response body, making it suitable for validation errors where the
+/// client needs to understand what went wrong.
+///
+/// # Args
+/// * `e` - The error to convert into a bad request error. This can be any type that implements the
+///   `fmt::Debug` and `fmt::Display` traits, and must have a static lifetime.
+///
+/// # Returns
+/// An `actix_web::Error` that represents a bad request (HTTP 400).
+pub fn e400<T>(e: T) -> actix_web::Error
+where
+    T: fmt::Debug + fmt::Display + 'static,
+{
+    actix_web::error::ErrorBadRequest(e)
+}
