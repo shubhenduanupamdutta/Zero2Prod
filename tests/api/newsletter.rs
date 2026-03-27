@@ -25,7 +25,8 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     // Act - Part 1 - Submit Newsletter form
     let newsletter_request_body = json!({
         "title": "Newsletter title",
-        "content": "<p>Newsletter body as HTML</p>"
+        "content": "<p>Newsletter body as HTML</p>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string(),
     });
 
     let response = app.post_publish_newsletter(&newsletter_request_body).await;
@@ -56,7 +57,8 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     // Act - Part 1 - Submit Newsletter form
     let newsletter_request_body = serde_json::json!({
         "title": "Newsletter title",
-        "content": "<p>Newsletter body as HTML</p>"
+        "content": "<p>Newsletter body as HTML</p>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string(),
     });
     let response = app.post_publish_newsletter(&newsletter_request_body).await;
     // Assert - Part 1 - Check that we are redirected back to the newsletter form
@@ -89,7 +91,8 @@ async fn you_must_be_logged_in_to_publish_a_newsletter() {
     // Act
     let newsletter_request_body = json!({
         "title": "Newsletter title",
-        "content": "<p>Newsletter body as HTML</p>"
+        "content": "<p>Newsletter body as HTML</p>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string(),
     });
     let response = app.post_publish_newsletter(&newsletter_request_body).await;
 

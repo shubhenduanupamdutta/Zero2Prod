@@ -8,25 +8,36 @@ use crate::{
     authentication::UserId,
     domain::NewSubscriber,
     email_client::EmailClient,
-    utils::{e500, see_other},
+    idempotency::IdempotencyKey,
+    utils::{e400, e500, see_other},
 };
 
 #[derive(Deserialize)]
-pub struct BodyData {
+pub struct FormData {
     title: String,
     content: String,
+    idempotency_key: String,
 }
 
 #[tracing::instrument(name = "Publish a newsletter issue",
-    skip(body, pool, email_client),
+    skip(form, pool, email_client),
     fields(user_id=%*user_id)
 )]
 pub async fn publish_newsletter(
-    body: web::Form<BodyData>,
+    form: web::Form<FormData>,
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
     user_id: web::ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    // We must destructure the form to avoid upsetting the borrow-checker
+    let FormData {
+        title,
+        content,
+        idempotency_key,
+    } = form.0;
+
+    let _idempotency_key: IdempotencyKey = idempotency_key.try_into().map_err(e400)?;
+
     let subscribers = get_confirmed_subscribers(&pool)
         .await
         .context("Failed to get confirmed subscribers")
@@ -36,12 +47,7 @@ pub async fn publish_newsletter(
         match subscriber {
             Ok(subscriber) => {
                 email_client
-                    .send_email(
-                        &subscriber.email,
-                        &subscriber.name,
-                        &body.title,
-                        &body.content,
-                    )
+                    .send_email(&subscriber.email, &subscriber.name, &title, &content)
                     .await
                     .with_context(|| {
                         format!("Failed to send newsletter email to {}", subscriber.email)
