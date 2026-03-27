@@ -30,11 +30,7 @@ pub async fn publish_newsletter(
     user_id: web::ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
     // We must destructure the form to avoid upsetting the borrow-checker
-    let FormData {
-        title,
-        content,
-        idempotency_key,
-    } = form.0;
+    let FormData { title, content, idempotency_key } = form.0;
 
     let _idempotency_key: IdempotencyKey = idempotency_key.try_into().map_err(e400)?;
 

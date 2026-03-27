@@ -39,9 +39,7 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called() {
 
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
 
-    let ConfirmationLinks {
-        link,
-    } = app.get_confirmation_links(email_request);
+    let ConfirmationLinks { link } = app.get_confirmation_links(email_request);
 
     // Act
     let response = reqwest::get(link)
@@ -68,9 +66,7 @@ async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
 
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
 
-    let ConfirmationLinks {
-        link,
-    } = app.get_confirmation_links(email_request);
+    let ConfirmationLinks { link } = app.get_confirmation_links(email_request);
 
     // Act
     reqwest::get(link)

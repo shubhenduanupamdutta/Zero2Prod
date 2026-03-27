@@ -111,9 +111,7 @@ impl TestApp {
             confirmation_link
         };
         let link = get_link(body["htmlbody"].as_str().unwrap());
-        ConfirmationLinks {
-            link,
-        }
+        ConfirmationLinks { link }
     }
 
     pub async fn insert_subscriber(&self, email: &str, name: &str, status: Option<&str>) -> Uuid {

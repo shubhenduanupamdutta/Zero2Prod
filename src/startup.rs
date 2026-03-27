@@ -74,10 +74,7 @@ impl Application {
             configuration.redis_uri,
         )
         .await?;
-        Ok(Self {
-            port,
-            server,
-        })
+        Ok(Self { port, server })
     }
 
     pub fn port(&self) -> u16 {

@@ -13,10 +13,7 @@ pub struct NameAndEmail<'a> {
 
 impl<'a> NameAndEmail<'a> {
     pub(crate) fn new(email: &'a str, name: &'a str) -> Self {
-        Self {
-            address: email,
-            name,
-        }
+        Self { address: email, name }
     }
 }
 
@@ -45,9 +42,7 @@ impl<'a> EmailBody<'a> {
     ) -> Self {
         Self {
             from,
-            to: vec![EmailAddress {
-                email_address: to,
-            }],
+            to: vec![EmailAddress { email_address: to }],
             cc: None,
             reply_to: None,
             subject,
