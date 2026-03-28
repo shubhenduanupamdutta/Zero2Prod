@@ -1,8 +1,12 @@
+use chrono::{Duration, Utc};
 use sqlx::{Executor, PgPool, Postgres, Transaction};
 use tracing::{Span, field::display};
 use uuid::Uuid;
 
 use crate::{domain::NewSubscriber, email_client::EmailClient};
+
+
+const MAX_RETRIES: i16 = 5;
 
 #[tracing::instrument(
     skip_all,
@@ -12,8 +16,10 @@ use crate::{domain::NewSubscriber, email_client::EmailClient};
     ),
     err
 )]
+
+
 async fn try_execute_task(pool: &PgPool, email_client: &EmailClient) -> Result<(), anyhow::Error> {
-    if let Some((transaction, issue_id, email, name)) = dequeue_task(pool).await? {
+    if let Some((transaction, issue_id, email, name, retries)) = dequeue_task(pool).await? {
         Span::current()
             .record("newsletter_issue_id", display(issue_id))
             .record("subscriber_email", display(&email));
@@ -30,10 +36,24 @@ async fn try_execute_task(pool: &PgPool, email_client: &EmailClient) -> Result<(
                     )
                     .await
                 {
+                    if retries < MAX_RETRIES {
+                        // Store for retry with an exponential backoff and warn in log
+                        tracing::warn!(
+                            retries,
+                            max_retries = MAX_RETRIES,
+                            "Email delivery failed, Updating task to retry later {}/{} for {}",
+                            retries + 1,
+                            MAX_RETRIES,
+                            recipient.email
+                        );
+                        store_for_retry(transaction, issue_id, &email, retries).await?;
+                        return Ok(());
+                    }
                     tracing::error!(
                         error.cause_chain = ?e,
                         error.message = %e,
-                        "Failed to send newsletter issue email to subscriber. Skipping."
+                        "Permanent failure when sending newsletter issue to {}, reached max retries {}/{}",
+                        recipient.email, retries, MAX_RETRIES
                     );
                 }
             },
@@ -41,7 +61,8 @@ async fn try_execute_task(pool: &PgPool, email_client: &EmailClient) -> Result<(
                 tracing::error!(
                     error.cause_chain = ?e,
                     error.message = %e,
-                    "Skipping a confirmed subscriber. Their stored contact details are invalid"
+                    "Skipping a confirmed subscriber. Their stored contact details are invalid. Subscriber email: {}",
+                    email
                 );
             },
         }
@@ -62,19 +83,20 @@ type PgTransaction = Transaction<'static, Postgres>;
 /// * `pool` - The connection pool to the Postgres database
 ///
 /// # Returns
-/// * `Ok(Some((transaction, issue_id, email, name)))` - If a task is available and has been locked
-///   for processing
+/// * `Ok(Some((transaction, issue_id, email, name, retries)))` - If a task is available and has
+///   been locked for processing
 /// * `Ok(None)` - If no task is available for processing
 async fn dequeue_task(
     pool: &PgPool,
-) -> Result<Option<(PgTransaction, Uuid, String, String)>, anyhow::Error> {
+) -> Result<Option<(PgTransaction, Uuid, String, String, i16)>, anyhow::Error> {
     // We need to start a transaction to be able to lock the selected task
     let mut transaction = pool.begin().await?;
     let record = sqlx::query!(
         r#"
-        SELECT q.newsletter_issue_id, q.subscriber_email, s.name AS subscriber_name
+        SELECT q.newsletter_issue_id, q.subscriber_email, s.name AS subscriber_name, q.n_retries
         FROM issue_delivery_queue q
         JOIN subscriptions s ON s.email = q.subscriber_email
+        WHERE q.execute_after <= now()
         FOR UPDATE OF q
         SKIP LOCKED
         LIMIT 1
@@ -89,6 +111,7 @@ async fn dequeue_task(
             r.newsletter_issue_id,
             r.subscriber_email,
             r.subscriber_name,
+            r.n_retries,
         )))
     } else {
         Ok(None)
@@ -137,4 +160,36 @@ async fn get_issue(pool: &PgPool, issue_id: Uuid) -> Result<NewsletterIssue, any
     .fetch_one(pool)
     .await?;
     Ok(issue)
+}
+
+
+#[tracing::instrument(skip_all)]
+async fn store_for_retry(
+    mut transaction: PgTransaction,
+    issue_id: Uuid,
+    email: &str,
+    retries: i16,
+) -> Result<(), anyhow::Error> {
+    let backoff = Duration::minutes(2_i64.pow(retries as u32));
+    let execute_after = Utc::now() + backoff;
+
+    sqlx::query!(
+        r#"
+        UPDATE issue_delivery_queue
+        SET
+            n_retries = n_retries + 1,
+            execute_after = $3
+        WHERE
+            newsletter_issue_id = $1 AND
+            subscriber_email = $2
+        "#,
+        issue_id,
+        email,
+        execute_after,
+    )
+    .execute(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+
+    Ok(())
 }
