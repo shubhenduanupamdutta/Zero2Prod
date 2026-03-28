@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde_json::json;
 use wiremock::{
     Mock,
@@ -182,4 +184,38 @@ async fn newsletter_creation_is_idempotent() {
     assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
 
     // Mock verifies on Drop that we have send the newsletter email **once**.
+}
+
+#[tokio::test]
+async fn concurrent_form_submission_is_handled_gracefully() {
+    // Arrange
+    let app = spawn_app().await;
+    create_confirmed_subscriber(&app).await;
+    app.test_user.login(&app).await;
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        // Setting a long delay to make sure that second request arrives before first completes
+        .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(2)))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    // Act - Submit two newsletter form concurrently
+    let newsletter_request_body = json!({
+        "title": "Newsletter title",
+        "content": "<p>Newsletter body as HTML</p>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string(),
+    });
+    let response1 = app.post_publish_newsletter(&newsletter_request_body);
+    let response2 = app.post_publish_newsletter(&newsletter_request_body);
+    let (response1, response2) = tokio::join!(response1, response2);
+
+    assert_eq!(response1.status(), response2.status());
+    assert_eq!(
+        response1.text().await.unwrap(),
+        response2.text().await.unwrap()
+    )
+
+    // Mock verifies on Drop that we have sent the newsletter email **once**.
 }
