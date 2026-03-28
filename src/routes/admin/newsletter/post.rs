@@ -2,7 +2,8 @@ use actix_web::{HttpResponse, web};
 use actix_web_flash_messages::FlashMessage;
 use anyhow::Context as _;
 use serde::Deserialize;
-use sqlx::PgPool;
+use sqlx::{Executor, PgPool, Postgres, Transaction};
+use uuid::Uuid;
 
 use crate::{
     authentication::UserId,
@@ -103,4 +104,51 @@ async fn get_confirmed_subscribers(
 
 fn success_message() -> FlashMessage {
     FlashMessage::info("The newsletter issue has been published!")
+}
+
+#[tracing::instrument(skip_all)]
+async fn insert_newsletter_issue(
+    transaction: &mut Transaction<'_, Postgres>,
+    title: &str,
+    content: &str,
+) -> Result<Uuid, sqlx::Error> {
+    let newsletter_issue_id = Uuid::new_v4();
+
+    let query = sqlx::query!(
+        r#"
+        INSERT INTO newsletter_issues (
+            newsletter_issue_id,
+            title,
+            content,
+            published_at
+        )
+        VALUES ($1, $2, $3, now())
+        "#,
+        newsletter_issue_id,
+        title,
+        content,
+    );
+    transaction.execute(query).await?;
+    Ok(newsletter_issue_id)
+}
+
+#[tracing::instrument(skip_all)]
+async fn enqueue_delivery_tasks(
+    transaction: &mut Transaction<'_, Postgres>,
+    newsletter_issue_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    let query = sqlx::query!(
+        r#"
+        INSERT INTO issue_delivery_queue (
+            newsletter_issue_id,
+            subscriber_email
+        )
+        SELECT $1, email
+        FROM subscriptions
+        WHERE status = 'confirmed'
+        "#,
+        newsletter_issue_id,
+    );
+    transaction.execute(query).await?;
+    Ok(())
 }
