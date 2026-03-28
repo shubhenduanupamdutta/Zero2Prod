@@ -1,4 +1,6 @@
-use chrono::{Duration, Utc};
+use std::time::Duration;
+
+use chrono::{Duration as ChronoDuration, Utc};
 use sqlx::{Executor, PgPool, Postgres, Transaction};
 use tracing::{Span, field::display};
 use uuid::Uuid;
@@ -18,59 +20,66 @@ const MAX_RETRIES: i16 = 5;
 )]
 
 
-async fn try_execute_task(pool: &PgPool, email_client: &EmailClient) -> Result<(), anyhow::Error> {
-    if let Some((transaction, issue_id, email, name, retries)) = dequeue_task(pool).await? {
-        Span::current()
-            .record("newsletter_issue_id", display(issue_id))
-            .record("subscriber_email", display(&email));
+async fn try_execute_task(
+    pool: &PgPool,
+    email_client: &EmailClient,
+) -> Result<ExecutionOutcome, anyhow::Error> {
+    let task = dequeue_task(pool).await?;
+    if task.is_none() {
+        return Ok(ExecutionOutcome::EmptyQueue);
+    }
+    let (transaction, issue_id, email, name, retries) = task.unwrap();
+    Span::current()
+        .record("newsletter_issue_id", display(issue_id))
+        .record("subscriber_email", display(&email));
 
-        match NewSubscriber::parse(email.clone(), name) {
-            Ok(recipient) => {
-                let issue = get_issue(pool, issue_id).await?;
-                if let Err(e) = email_client
-                    .send_email(
-                        &recipient.email,
-                        &recipient.name,
-                        &issue.title,
-                        &issue.content,
-                    )
-                    .await
-                {
-                    if retries < MAX_RETRIES {
-                        // Store for retry with an exponential backoff and warn in log
-                        tracing::warn!(
-                            retries,
-                            max_retries = MAX_RETRIES,
-                            "Email delivery failed, Updating task to retry later {}/{} for {}",
-                            retries + 1,
-                            MAX_RETRIES,
-                            recipient.email
-                        );
-                        store_for_retry(transaction, issue_id, &email, retries).await?;
-                        return Ok(());
-                    }
-                    tracing::error!(
-                        error.cause_chain = ?e,
-                        error.message = %e,
-                        "Permanent failure when sending newsletter issue to {}, reached max retries {}/{}",
-                        recipient.email, retries, MAX_RETRIES
+    match NewSubscriber::parse(email.clone(), name) {
+        Ok(recipient) => {
+            let issue = get_issue(pool, issue_id).await?;
+            if let Err(e) = email_client
+                .send_email(
+                    &recipient.email,
+                    &recipient.name,
+                    &issue.title,
+                    &issue.content,
+                )
+                .await
+            {
+                if retries < MAX_RETRIES {
+                    // Store for retry with an exponential backoff and warn in log
+                    tracing::warn!(
+                        retries,
+                        max_retries = MAX_RETRIES,
+                        "Email delivery failed, Updating task to retry later {}/{} for {}",
+                        retries + 1,
+                        MAX_RETRIES,
+                        recipient.email
                     );
+                    store_for_retry(transaction, issue_id, &email, retries).await?;
+                    return Ok(ExecutionOutcome::TaskCompleted);
                 }
-            },
-            Err(e) => {
                 tracing::error!(
                     error.cause_chain = ?e,
                     error.message = %e,
-                    "Skipping a confirmed subscriber. Their stored contact details are invalid. Subscriber email: {}",
-                    email
+                    "Permanent failure when sending newsletter issue to {}, reached max retries {}/{}",
+                    recipient.email, retries, MAX_RETRIES
                 );
-            },
-        }
-
-        delete_task(transaction, issue_id, &email).await?;
+            }
+        },
+        Err(e) => {
+            tracing::error!(
+                error.cause_chain = ?e,
+                error.message = %e,
+                "Skipping a confirmed subscriber. Their stored contact details are invalid. Subscriber email: {}",
+                email
+            );
+        },
     }
 
-    Ok(())
+    delete_task(transaction, issue_id, &email).await?;
+
+
+    Ok(ExecutionOutcome::TaskCompleted)
 }
 
 type PgTransaction = Transaction<'static, Postgres>;
@@ -170,7 +179,7 @@ async fn store_for_retry(
     email: &str,
     retries: i16,
 ) -> Result<(), anyhow::Error> {
-    let backoff = Duration::minutes(2_i64.pow(retries as u32));
+    let backoff = ChronoDuration::minutes(2_i64.pow(retries as u32));
     let execute_after = Utc::now() + backoff;
 
     sqlx::query!(
@@ -192,4 +201,24 @@ async fn store_for_retry(
     transaction.commit().await?;
 
     Ok(())
+}
+
+
+enum ExecutionOutcome {
+    TaskCompleted,
+    EmptyQueue,
+}
+
+async fn worker_loop(pool: PgPool, email_client: EmailClient) -> Result<(), anyhow::Error> {
+    loop {
+        match try_execute_task(&pool, &email_client).await {
+            Ok(ExecutionOutcome::EmptyQueue) => {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+            },
+            Err(_) => {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            },
+            Ok(ExecutionOutcome::TaskCompleted) => {},
+        }
+    }
 }
