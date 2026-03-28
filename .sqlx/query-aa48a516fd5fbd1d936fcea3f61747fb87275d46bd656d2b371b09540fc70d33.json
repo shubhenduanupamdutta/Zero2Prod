@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT q.newsletter_issue_id, q.subscriber_email, s.name AS subscriber_name, q.n_retries\n        FROM issue_delivery_queue q\n        JOIN subscriptions s ON s.email = q.subscriber_email\n        WHERE q.execute_after <= now()\n        FOR UPDATE OF q\n        SKIP LOCKED\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "newsletter_issue_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "subscriber_email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "subscriber_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "n_retries",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "aa48a516fd5fbd1d936fcea3f61747fb87275d46bd656d2b371b09540fc70d33"
+}
