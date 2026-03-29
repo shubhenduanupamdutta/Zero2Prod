@@ -38,7 +38,7 @@ pub async fn try_execute_task(
         .record("newsletter_issue_id", display(issue_id))
         .record("subscriber_email", display(&email));
 
-    match NewSubscriber::parse(email.clone(), name) {
+    match NewSubscriber::parse(name, email.clone()) {
         Ok(recipient) => {
             let issue = get_issue(pool, issue_id).await?;
             if let Err(e) = email_client
