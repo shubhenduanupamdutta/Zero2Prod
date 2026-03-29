@@ -24,8 +24,6 @@ const MAX_RETRIES: i16 = 5;
     ),
     err
 )]
-
-
 pub async fn try_execute_task(
     pool: &PgPool,
     email_client: &EmailClient,

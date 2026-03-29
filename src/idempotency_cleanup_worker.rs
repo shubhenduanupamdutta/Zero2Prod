@@ -5,7 +5,7 @@ use sqlx::PgPool;
 
 use crate::{configuration::Settings, startup::get_connection_pool, utils::ExecutionOutcome};
 
-
+#[tracing::instrument(skip_all, err)]
 async fn try_deleting_expired_idempotency_keys(
     pool: &PgPool,
 ) -> Result<ExecutionOutcome, anyhow::Error> {
