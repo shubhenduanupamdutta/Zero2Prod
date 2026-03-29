@@ -10,6 +10,7 @@ use crate::{
     domain::NewSubscriber,
     email_client::EmailClient,
     startup::get_connection_pool,
+    utils::ExecutionOutcome,
 };
 
 
@@ -208,11 +209,6 @@ async fn store_for_retry(
     Ok(())
 }
 
-
-pub enum ExecutionOutcome {
-    TaskCompleted,
-    EmptyQueue,
-}
 
 async fn worker_loop(pool: PgPool, email_client: EmailClient) -> Result<(), anyhow::Error> {
     loop {

@@ -19,9 +19,10 @@ use wiremock::MockServer;
 use zero2prod::{
     configuration::{DatabaseSettings, get_configuration},
     email_client::EmailClient,
-    issue_delivery_worker::{ExecutionOutcome, try_execute_task},
+    issue_delivery_worker::try_execute_task,
     startup::{Application, get_connection_pool},
     telemetry::{get_subscriber, init_subscriber},
+    utils::ExecutionOutcome,
 };
 
 // Ensure that the `tracing` stack is only initialized once when the first test is run, and is not
