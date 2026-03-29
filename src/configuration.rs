@@ -4,7 +4,10 @@ use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
 
-use crate::domain::{SubscriberEmail, SubscriberName};
+use crate::{
+    domain::{SubscriberEmail, SubscriberName},
+    email_client::EmailClient,
+};
 
 #[derive(Deserialize, Clone)]
 pub struct Settings {
@@ -50,6 +53,21 @@ impl EmailClientSettings {
     /// Returns the sender name and email as a tuple if both are valid, otherwise returns an error.
     pub fn sender_name_end_email(&self) -> Result<(SubscriberName, SubscriberEmail), String> {
         Ok((self.sender_name()?, self.sender_email()?))
+    }
+
+    pub fn client(self) -> EmailClient {
+        let (sender_name, sender_email) = self
+            .sender_name_end_email()
+            .expect("Invalid sender email or name in configuration.");
+        let timeout = self.timeout();
+
+        EmailClient::new(
+            self.base_url,
+            sender_email,
+            sender_name,
+            self.authorization_token,
+            timeout,
+        )
     }
 }
 

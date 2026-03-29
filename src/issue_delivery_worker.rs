@@ -231,18 +231,6 @@ async fn worker_loop(pool: PgPool, email_client: EmailClient) -> Result<(), anyh
 pub async fn run_worker_until_stopped(configuration: Settings) -> Result<(), anyhow::Error> {
     let connection_pool = get_connection_pool(&configuration.database);
 
-    let (sender_name, sender_email) = configuration
-        .email_client
-        .sender_name_end_email()
-        .expect("Invalid sender email address");
-
-    let timeout = configuration.email_client.timeout();
-    let email_client = EmailClient::new(
-        configuration.email_client.base_url,
-        sender_email,
-        sender_name,
-        configuration.email_client.authorization_token,
-        timeout,
-    );
+    let email_client = configuration.email_client.client();
     worker_loop(connection_pool, email_client).await
 }
