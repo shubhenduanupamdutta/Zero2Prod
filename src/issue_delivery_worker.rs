@@ -25,7 +25,7 @@ const MAX_RETRIES: i16 = 5;
 )]
 
 
-async fn try_execute_task(
+pub async fn try_execute_task(
     pool: &PgPool,
     email_client: &EmailClient,
 ) -> Result<ExecutionOutcome, anyhow::Error> {
@@ -209,7 +209,7 @@ async fn store_for_retry(
 }
 
 
-enum ExecutionOutcome {
+pub enum ExecutionOutcome {
     TaskCompleted,
     EmptyQueue,
 }
